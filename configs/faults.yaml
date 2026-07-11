@@ -1,0 +1,65 @@
+faults:
+  - id: SRAM_STUCK_BIT_LOW
+    type: stuck_bit
+    enabled: true
+    address: 15
+    bit: 3
+    value: 1
+    description: "Stuck-at-one bit fault at SRAM address 15, bit 3"
+
+  - id: SRAM_STUCK_BIT_HIGH
+    type: stuck_bit
+    enabled: false
+    address: 64
+    bit: 7
+    value: 0
+    description: "Stuck-at-zero bit fault at SRAM address 64, bit 7"
+
+  - id: SRAM_MEMORY_CORRUPTION
+    type: memory_corruption
+    enabled: false
+    address: 128
+    description: "Random data corruption at SRAM address 128"
+
+  - id: POWER_VOLTAGE_DROP
+    type: voltage_drop
+    enabled: false
+    trigger_after_cycles: 100
+    voltage: 2.7
+    description: "Voltage drop to 2.7V after 100 cycles"
+
+  - id: THERMAL_OVERHEAT
+    type: overheat
+    enabled: false
+    temperature: 90.0
+    description: "Inject overheating condition to 90°C"
+
+  - id: I2C_INTERMITTENT_TIMEOUT
+    type: i2c_timeout
+    enabled: false
+    probability: 0.1
+    description: "10% probability of I2C timeout"
+
+  - id: I2C_NACK
+    type: i2c_nack
+    enabled: false
+    probability: 0.05
+    description: "5% probability of I2C NACK"
+
+  - id: SPI_TIMEOUT
+    type: spi_timeout
+    enabled: false
+    probability: 0.05
+    description: "5% probability of SPI timeout"
+
+  - id: SPI_DATA_CORRUPTION
+    type: spi_corruption
+    enabled: false
+    probability: 0.02
+    description: "2% probability of SPI response corruption"
+
+  - id: REGISTER_WRITE_FAIL
+    type: register_write_failure
+    enabled: false
+    address: 0x02
+    description: "Inject write failure on POWER_CONTROL register"

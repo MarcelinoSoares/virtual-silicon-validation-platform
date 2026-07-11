@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "virtual-silicon-validation-platform"
@@ -55,8 +55,13 @@ where = ["src"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
+
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=virtual_silicon --cov-report=html --cov-report=term-missing"
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::pytest.PytestCollectionWarning",
+    "ignore::DeprecationWarning",
+]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
@@ -73,7 +78,11 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "ANN", "B", "C4", "SIM"]
-ignore = ["ANN101", "ANN102"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN001", "ANN201", "ANN202", "ANN401"]
+"scripts/**" = ["ANN001", "ANN201", "ANN202"]
 
 [tool.mypy]
 python_version = "3.12"

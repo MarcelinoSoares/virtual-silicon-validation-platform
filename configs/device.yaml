@@ -1,0 +1,51 @@
+device:
+  name: "VS-1000-A"
+  firmware_version: "1.0"
+  sram_size_bytes: 256
+  i2c_address: 0x48
+  spi_clock_hz: 1000000
+
+registers:
+  - name: DEVICE_ID
+    address: 0x00
+    size: 8
+    access: ro
+    reset_value: 0xA5
+  - name: DEVICE_STATUS
+    address: 0x01
+    size: 8
+    access: ro
+    reset_value: 0x00
+  - name: POWER_CONTROL
+    address: 0x02
+    size: 8
+    access: rw
+    reset_value: 0x00
+    bit_mask: 0x0F
+  - name: TEMPERATURE
+    address: 0x03
+    size: 8
+    access: ro
+    reset_value: 0x19
+  - name: VOLTAGE_LEVEL
+    address: 0x04
+    size: 16
+    access: ro
+    reset_value: 0x0C80
+  - name: FIRMWARE_VERSION
+    address: 0x0A
+    size: 16
+    access: ro
+    reset_value: 0x0100
+
+power:
+  nominal_voltage: 3.3
+  voltage_tolerance: 0.05
+  current_limit: 1.0
+  min_operating_voltage: 2.7
+  max_operating_voltage: 3.6
+
+thermal:
+  ambient_celsius: 25.0
+  max_celsius: 85.0
+  warning_celsius: 75.0

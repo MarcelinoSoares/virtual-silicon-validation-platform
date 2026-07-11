@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  test:
+    build: .
+    command: >
+      pytest tests/ -v --tb=short
+      --cov=virtual_silicon --cov-report=html:reports/coverage
+      --cov-report=term-missing
+    volumes:
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      - VSVP_DATABASE_URL=sqlite:///./virtual_silicon_test.db
+      - VSVP_LOG_LEVEL=INFO
+      - VSVP_RANDOM_SEED=42
+
+  api:
+    build: .
+    command: uvicorn virtual_silicon.api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      - VSVP_DATABASE_URL=sqlite:///./virtual_silicon.db
+      - VSVP_LOG_LEVEL=INFO
+      - VSVP_API_DEBUG=true
+
+  validate:
+    build: .
+    command: python scripts/run_validation.py
+    volumes:
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      - VSVP_DATABASE_URL=sqlite:///./virtual_silicon.db
+      - VSVP_LOG_LEVEL=INFO
+
+  report:
+    build: .
+    command: python scripts/generate_report.py
+    volumes:
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    depends_on:
+      - validate
+    environment:
+      - VSVP_DATABASE_URL=sqlite:///./virtual_silicon.db

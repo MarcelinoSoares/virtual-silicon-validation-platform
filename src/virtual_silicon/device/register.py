@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +46,10 @@ class Register:
         size: RegisterSize = RegisterSize.BITS_8,
         access: AccessType = AccessType.READ_WRITE,
         reset_value: int = 0x00,
-        bit_mask: Optional[int] = None,
+        bit_mask: int | None = None,
         description: str = "",
-        min_value: Optional[int] = None,
-        max_value: Optional[int] = None,
+        min_value: int | None = None,
+        max_value: int | None = None,
     ) -> None:
         """Initialize a virtual register.
 
@@ -129,9 +128,7 @@ class Register:
         masked_value = value & self.bit_mask
         self._value = masked_value
         self._write_count += 1
-        logger.debug(
-            "Wrote register '%s' [0x%04X] = 0x%X", self.name, self.address, masked_value
-        )
+        logger.debug("Wrote register '%s' [0x%04X] = 0x%X", self.name, self.address, masked_value)
 
     def reset(self) -> None:
         """Reset register to its default reset value."""
