@@ -145,6 +145,17 @@ class TestAPIChipNotPowered:
         finally:
             _api_mod._chip = saved
 
+    def test_reset_chip_powers_on_when_not_powered(self) -> None:
+        """POST /chip/reset calls power_on() when chip is not powered (line 127)."""
+        saved = _api_mod._chip
+        _api_mod._chip = self._make_unpowered_chip()
+        try:
+            resp = client.post("/chip/reset")
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "reset"
+        finally:
+            _api_mod._chip = saved
+
 
 @pytest.mark.unit
 class TestAPIFaultAndReport:
