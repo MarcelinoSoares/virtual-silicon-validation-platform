@@ -32,9 +32,7 @@ class DatabaseSession:
                 poolclass=StaticPool,
             )
         elif database_url.startswith("sqlite"):
-            self._engine = create_engine(
-                database_url, connect_args={"check_same_thread": False}
-            )
+            self._engine = create_engine(database_url, connect_args={"check_same_thread": False})
         else:
             self._engine = create_engine(database_url)
         self._session_factory = sessionmaker(bind=self._engine, autoflush=False, autocommit=False)
