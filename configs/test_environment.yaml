@@ -1,0 +1,44 @@
+environment:
+  name: "virtual-lab"
+  type: "simulation"
+  platform: "linux"
+
+database:
+  url: "sqlite:///./virtual_silicon.db"
+
+logging:
+  level: "INFO"
+  file: "logs/virtual-silicon.log"
+  format: "%(asctime)s [%(levelname)s] %(name)s — %(message)s"
+
+reports:
+  output_dir: "reports"
+  formats:
+    - html
+    - csv
+    - json
+
+test_execution:
+  random_seed: 42
+  parallel: false
+  timeout_seconds: 300
+
+instruments:
+  power_supply:
+    nominal_voltage: 3.3
+    current_limit: 1.0
+  multimeter:
+    tolerance: 0.02
+  temperature_sensor:
+    ambient_celsius: 25.0
+    max_celsius: 85.0
+  spectrometer:
+    base_brightness: 100.0
+    wavelength_nm: 550.0
+
+thresholds:
+  min_pass_rate: 85.0
+  max_avg_duration_ms: 5000
+  max_temperature_celsius: 80.0
+  min_voltage: 2.7
+  max_voltage: 3.6

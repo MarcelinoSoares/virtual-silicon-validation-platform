@@ -1,0 +1,61 @@
+## Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+.env
+
+## Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+## Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.db
+
+## Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+## Linting
+.ruff_cache/
+
+## Generated reports (content, keep .gitkeep)
+reports/*.html
+reports/*.csv
+reports/*.json
+reports/charts/
+reports/coverage/
+
+## Logs
+logs/
+*.log
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+CLAUDE.md
+
+## macOS
+.DS_Store

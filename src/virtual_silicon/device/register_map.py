@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Iterator, Optional
+from collections.abc import Iterator
 
-from virtual_silicon.device.register import AccessType, InvalidRegisterAddressError, Register, RegisterSize
+from virtual_silicon.device.register import (
+    AccessType,
+    InvalidRegisterAddressError,
+    Register,
+    RegisterSize,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +24,8 @@ class RegisterMap:
 
     def __init__(self) -> None:
         """Initialize the register map with default chip registers."""
-        self._registers: Dict[int, Register] = {}
-        self._name_index: Dict[str, Register] = {}
+        self._registers: dict[int, Register] = {}
+        self._name_index: dict[str, Register] = {}
         self._initialize_registers()
 
     def _initialize_registers(self) -> None:
@@ -171,9 +176,9 @@ class RegisterMap:
             reg.reset()
         logger.info("All registers reset to default values.")
 
-    def get_snapshot(self) -> Dict[str, int]:
+    def get_snapshot(self) -> dict[str, int]:
         """Return a dict snapshot of all register values by name."""
-        snapshot: Dict[str, int] = {}
+        snapshot: dict[str, int] = {}
         for name, reg in self._name_index.items():
             try:
                 snapshot[name] = reg.read()
