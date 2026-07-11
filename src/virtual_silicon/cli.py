@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from virtual_silicon.configuration.settings import get_settings
+from virtual_silicon.database.models import FaultEvent
 from virtual_silicon.database.repository import TestRepository
 from virtual_silicon.database.session import get_session
 from virtual_silicon.device.virtual_chip import VirtualChip
@@ -222,7 +223,7 @@ def generate_report(
 
     results = repo.get_all_results(execution_id)
     measurements = repo.get_measurements(execution_id)
-    fault_events: list = []
+    fault_events: list[FaultEvent] = []
 
     analyzer = TestAnalyzer(results, measurements, fault_events)
     summary = analyzer.summarize(execution_id)

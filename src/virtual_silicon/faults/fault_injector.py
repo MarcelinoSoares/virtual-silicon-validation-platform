@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import random
+from typing import Protocol
 
 from virtual_silicon.faults.fault_models import (
     FaultConfig,
@@ -13,6 +14,10 @@ from virtual_silicon.faults.fault_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _BusWithFaultProbabilities(Protocol):
+    def set_fault_probabilities(self, **kwargs: float) -> None: ...
 
 
 class FaultInjector:
@@ -76,7 +81,7 @@ class FaultInjector:
                 logger.warning("Failed to apply fault %s: %s", cfg.fault_id, exc)
         return applied
 
-    def apply_to_i2c(self, i2c: object, cycle: int = 0) -> list[str]:
+    def apply_to_i2c(self, i2c: _BusWithFaultProbabilities, cycle: int = 0) -> list[str]:
         """Apply I2C-specific faults (timeout, NACK).
 
         Args:
@@ -99,9 +104,9 @@ class FaultInjector:
                 continue
             try:
                 if cfg.fault_type == FaultType.I2C_TIMEOUT:
-                    i2c.set_fault_probabilities(timeout=1.0)  # type: ignore[union-attr]
+                    i2c.set_fault_probabilities(timeout=1.0)
                 elif cfg.fault_type == FaultType.I2C_NACK:
-                    i2c.set_fault_probabilities(nack=1.0)  # type: ignore[union-attr]
+                    i2c.set_fault_probabilities(nack=1.0)
                 model.active = True
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
@@ -112,7 +117,7 @@ class FaultInjector:
                 logger.warning("Failed to apply I2C fault %s: %s", cfg.fault_id, exc)
         return applied
 
-    def apply_to_spi(self, spi: object, cycle: int = 0) -> list[str]:
+    def apply_to_spi(self, spi: _BusWithFaultProbabilities, cycle: int = 0) -> list[str]:
         """Apply SPI-specific faults (timeout, corruption).
 
         Args:
@@ -135,9 +140,9 @@ class FaultInjector:
                 continue
             try:
                 if cfg.fault_type == FaultType.SPI_TIMEOUT:
-                    spi.set_fault_probabilities(timeout=1.0)  # type: ignore[union-attr]
+                    spi.set_fault_probabilities(timeout=1.0)
                 elif cfg.fault_type == FaultType.SPI_CORRUPTION:
-                    spi.set_fault_probabilities(corruption=1.0)  # type: ignore[union-attr]
+                    spi.set_fault_probabilities(corruption=1.0)
                 model.active = True
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
@@ -185,17 +190,17 @@ class FaultInjector:
 
         elif cfg.fault_type == FaultType.REGISTER_VALUE_CORRUPTION:
             if cfg.address is not None:
-                reg = chip.register_map._get_register(cfg.address)  # type: ignore[attr-defined]
+                reg = chip.register_map._get_register(cfg.address)
                 if reg.access.value != "ro":
                     reg._value = self._rng.randint(0, reg._max_bits)
 
         elif cfg.fault_type == FaultType.VOLTAGE_DROP:
             voltage = cfg.voltage if cfg.voltage is not None else 0.5
-            chip.register_map.write(0x04, max(0, int(voltage * 1000)) & 0xFFFF)  # type: ignore[attr-defined]
+            chip.register_map.write(0x04, max(0, int(voltage * 1000)) & 0xFFFF)
 
         elif cfg.fault_type == FaultType.OVERHEAT:
             temp = cfg.temperature if cfg.temperature is not None else 90
-            chip.register_map._registers[0x03]._value = min(255, int(temp))  # type: ignore[attr-defined]
+            chip.register_map._registers[0x03]._value = min(255, int(temp))
 
         else:
             logger.debug("Fault type %s has no chip-level action.", cfg.fault_type.value)

@@ -181,7 +181,7 @@ def inject_fault(body: FaultInjectRequest) -> dict[str, Any]:
 
 
 @app.get("/results")
-def get_results(execution_id: str | None = None) -> list[dict]:
+def get_results(execution_id: str | None = None) -> list[dict[str, object]]:
     """Retrieve test results from the database."""
     repo = _get_repo()
     results = repo.get_all_results(execution_id=execution_id)

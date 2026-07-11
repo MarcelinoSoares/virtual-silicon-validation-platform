@@ -48,7 +48,7 @@ class FaultConfig:
     probability: float = 1.0
     trigger_after_cycles: int | None = None
     description: str = ""
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FaultConfig:

@@ -23,7 +23,7 @@ class TransactionLog:
     success: bool = True
     error: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Serialize to dictionary."""
         return {
             "protocol": self.protocol,

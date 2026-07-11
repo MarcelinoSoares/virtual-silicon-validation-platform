@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from virtual_silicon.database.models import FaultEvent, Measurement, TestResult
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,14 +23,14 @@ class AnalyticsSummary:
     pass_rate: float
     fail_rate: float
     avg_duration_ms: float
-    slowest_tests: list[dict] = field(default_factory=list)
+    slowest_tests: list[dict[str, object]] = field(default_factory=list)
     failures_by_category: dict[str, int] = field(default_factory=dict)
     failures_by_firmware: dict[str, int] = field(default_factory=dict)
     avg_voltage: float | None = None
     avg_current: float | None = None
     avg_temperature: float | None = None
     temp_failure_correlation: float | None = None
-    most_common_faults: list[dict] = field(default_factory=list)
+    most_common_faults: list[dict[str, object]] = field(default_factory=list)
 
 
 class TestAnalyzer:
@@ -38,7 +40,12 @@ class TestAnalyzer:
     measurement trends, and temperature/failure correlation.
     """
 
-    def __init__(self, results: list, measurements: list, fault_events: list) -> None:
+    def __init__(
+        self,
+        results: list[TestResult],
+        measurements: list[Measurement],
+        fault_events: list[FaultEvent],
+    ) -> None:
         """Initialize the analyzer with raw ORM result lists.
 
         Args:
@@ -50,7 +57,7 @@ class TestAnalyzer:
         self._measurements_df = self._build_measurements_df(measurements)
         self._faults_df = self._build_faults_df(fault_events)
 
-    def _build_results_df(self, results: list) -> pd.DataFrame:
+    def _build_results_df(self, results: list[TestResult]) -> pd.DataFrame:
         if not results:
             return pd.DataFrame(
                 columns=[
@@ -76,7 +83,7 @@ class TestAnalyzer:
         ]
         return pd.DataFrame(rows)
 
-    def _build_measurements_df(self, measurements: list) -> pd.DataFrame:
+    def _build_measurements_df(self, measurements: list[Measurement]) -> pd.DataFrame:
         if not measurements:
             return pd.DataFrame(
                 columns=["execution_id", "voltage", "current", "temperature", "brightness"]
@@ -93,7 +100,7 @@ class TestAnalyzer:
         ]
         return pd.DataFrame(rows)
 
-    def _build_faults_df(self, fault_events: list) -> pd.DataFrame:
+    def _build_faults_df(self, fault_events: list[FaultEvent]) -> pd.DataFrame:
         if not fault_events:
             return pd.DataFrame(columns=["fault_id", "fault_type", "execution_id"])
         rows = [
@@ -171,7 +178,7 @@ class TestAnalyzer:
                 avg_temp = round(float(mdf["temperature"].dropna().mean()), 2)
 
         # Most common faults
-        faults_list: list[dict] = []
+        faults_list: list[dict[str, object]] = []
         fdf = self._faults_df
         if not fdf.empty:
             fdf = fdf[fdf["execution_id"] == execution_id]

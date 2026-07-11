@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from virtual_silicon.analytics.analyzer import AnalyticsSummary
+from virtual_silicon.database.models import Measurement, TestResult
 
 logger = logging.getLogger(__name__)
 
@@ -135,8 +136,8 @@ class ReportGenerator:
     def generate_all(
         self,
         summary: AnalyticsSummary,
-        results: list,
-        measurements: list,
+        results: list[TestResult],
+        measurements: list[Measurement],
     ) -> dict[str, Path]:
         """Generate all reports and charts.
 
@@ -162,7 +163,9 @@ class ReportGenerator:
             "charts": chart_paths.get("pass_fail", self._charts_dir),
         }
 
-    def _generate_charts(self, summary: AnalyticsSummary, measurements: list) -> dict[str, Path]:
+    def _generate_charts(
+        self, summary: AnalyticsSummary, measurements: list[Measurement]
+    ) -> dict[str, Path]:
         paths: dict[str, Path] = {}
 
         # Pass/Fail pie chart
@@ -232,7 +235,7 @@ class ReportGenerator:
 
         return paths
 
-    def _generate_csv(self, results: list, execution_id: str) -> Path:
+    def _generate_csv(self, results: list[TestResult], execution_id: str) -> Path:
         rows = []
         for r in results:
             rows.append(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 
 from virtual_silicon.device.memory import SRAM, MemoryTestResult
 from virtual_silicon.device.register_map import RegisterMap
@@ -38,7 +39,7 @@ class VirtualChip:
         self._powered: bool = False
         self._cycle_count: int = 0
         self._power_on_time: float | None = None
-        self._fault_callbacks: list = []
+        self._fault_callbacks: list[Callable[[str, int, int], None]] = []
         logger.info("VirtualChip initialized. SRAM=%d bytes, seed=%s.", sram_size, seed)
 
     @property
@@ -175,7 +176,7 @@ class VirtualChip:
         minor = raw & 0xFF
         return f"{major}.{minor}"
 
-    def get_health_status(self) -> dict:
+    def get_health_status(self) -> dict[str, object]:
         """Return a health status dictionary for monitoring."""
         return {
             "powered": self._powered,
@@ -190,11 +191,11 @@ class VirtualChip:
             "sram_size": self._sram.size,
         }
 
-    def get_register_snapshot(self) -> dict:
+    def get_register_snapshot(self) -> dict[str, int]:
         """Return a snapshot of all register values."""
         return self._register_map.get_snapshot()
 
-    def add_fault_callback(self, callback: object) -> None:
+    def add_fault_callback(self, callback: Callable[[str, int, int], None]) -> None:
         """Register a fault injection callback invoked on chip operations."""
         self._fault_callbacks.append(callback)
 
