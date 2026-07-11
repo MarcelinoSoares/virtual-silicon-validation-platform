@@ -18,7 +18,14 @@ from virtual_silicon.faults.fault_models import (
 @pytest.mark.fault
 class TestFaultConfig:
     def test_from_dict_stuck_bit(self) -> None:
-        data = {"id": "TEST", "type": "stuck_bit", "enabled": True, "address": 5, "bit": 2, "value": 1}
+        data = {
+            "id": "TEST",
+            "type": "stuck_bit",
+            "enabled": True,
+            "address": 5,
+            "bit": 2,
+            "value": 1,
+        }
         cfg = FaultConfig.from_dict(data)
         assert cfg.fault_type == FaultType.STUCK_BIT
         assert cfg.address == 5

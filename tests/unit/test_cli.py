@@ -163,6 +163,7 @@ class TestCLINoFaultsTriggered:
     def test_inject_fault_no_faults_triggered(self, tmp_path) -> None:
         """inject-fault prints 'No faults triggered' when all faults have probability=0 (line 179)."""
         import yaml
+
         config_file = tmp_path / "zero_prob_faults.yaml"
         config_data = {
             "faults": [

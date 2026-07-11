@@ -33,17 +33,23 @@ class TestFullValidationFlow:
         assert txn.success
         assert txn.rx_data == [0x40]
 
-    def test_memory_test_results_saved_to_db(self, virtual_chip: VirtualChip, temp_db: TestRepository) -> None:
+    def test_memory_test_results_saved_to_db(
+        self, virtual_chip: VirtualChip, temp_db: TestRepository
+    ) -> None:
         eid = "test-flow-001"
         temp_db.create_test_run(eid)
         results = virtual_chip.run_memory_tests()
         for r in results:
             temp_db.save_test_result(
-                eid, r.test_name, "memory",
+                eid,
+                r.test_name,
+                "memory",
                 "PASS" if r.passed else "FAIL",
                 duration_ms=r.duration * 1000,
             )
-        temp_db.finish_test_run(eid, sum(1 for r in results if r.passed), sum(1 for r in results if not r.passed))
+        temp_db.finish_test_run(
+            eid, sum(1 for r in results if r.passed), sum(1 for r in results if not r.passed)
+        )
         saved = temp_db.get_all_results(eid)
         assert len(saved) == len(results)
 
@@ -62,7 +68,9 @@ class TestFullValidationFlow:
         results = virtual_chip.run_memory_tests()
         assert any(not r.passed for r in results)
 
-    def test_measurements_stored_in_db(self, virtual_chip: VirtualChip, temp_db: TestRepository, power_supply: PowerSupply) -> None:
+    def test_measurements_stored_in_db(
+        self, virtual_chip: VirtualChip, temp_db: TestRepository, power_supply: PowerSupply
+    ) -> None:
         eid = "test-meas-001"
         temp_db.create_test_run(eid)
         v = power_supply.measure_voltage()
@@ -72,7 +80,9 @@ class TestFullValidationFlow:
         assert len(measurements) == 1
         assert measurements[0].voltage is not None
 
-    def test_protocol_transaction_logged_to_db(self, virtual_chip: VirtualChip, temp_db: TestRepository) -> None:
+    def test_protocol_transaction_logged_to_db(
+        self, virtual_chip: VirtualChip, temp_db: TestRepository
+    ) -> None:
         eid = "test-proto-001"
         temp_db.create_test_run(eid)
         temp_db.save_protocol_transaction(eid, "I2C", "read", 0x48, 0x00, [0xA5], True)

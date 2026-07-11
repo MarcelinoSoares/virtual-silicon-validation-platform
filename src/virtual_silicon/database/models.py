@@ -29,10 +29,18 @@ class TestRun(Base):
     failed: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(16), default="running")
 
-    test_cases: Mapped[list[TestCase]] = relationship(back_populates="test_run", cascade="all, delete-orphan")
-    measurements: Mapped[list[Measurement]] = relationship(back_populates="test_run", cascade="all, delete-orphan")
-    fault_events: Mapped[list[FaultEvent]] = relationship(back_populates="test_run", cascade="all, delete-orphan")
-    transactions: Mapped[list[ProtocolTransaction]] = relationship(back_populates="test_run", cascade="all, delete-orphan")
+    test_cases: Mapped[list[TestCase]] = relationship(
+        back_populates="test_run", cascade="all, delete-orphan"
+    )
+    measurements: Mapped[list[Measurement]] = relationship(
+        back_populates="test_run", cascade="all, delete-orphan"
+    )
+    fault_events: Mapped[list[FaultEvent]] = relationship(
+        back_populates="test_run", cascade="all, delete-orphan"
+    )
+    transactions: Mapped[list[ProtocolTransaction]] = relationship(
+        back_populates="test_run", cascade="all, delete-orphan"
+    )
 
 
 class TestCase(Base):
@@ -46,7 +54,9 @@ class TestCase(Base):
     category: Mapped[str] = mapped_column(String(64), default="general")
 
     test_run: Mapped[TestRun] = relationship(back_populates="test_cases")
-    results: Mapped[list[TestResult]] = relationship(back_populates="test_case", cascade="all, delete-orphan")
+    results: Mapped[list[TestResult]] = relationship(
+        back_populates="test_case", cascade="all, delete-orphan"
+    )
 
 
 class TestResult(Base):

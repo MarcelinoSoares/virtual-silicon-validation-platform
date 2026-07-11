@@ -8,7 +8,9 @@ from virtual_silicon.instruments.power_supply import InstrumentMeasurementError,
 
 @pytest.mark.integration
 class TestPowerSequence:
-    def test_nominal_power_up_sequence(self, virtual_chip: VirtualChip, power_supply: PowerSupply) -> None:
+    def test_nominal_power_up_sequence(
+        self, virtual_chip: VirtualChip, power_supply: PowerSupply
+    ) -> None:
         assert virtual_chip.powered
         v = power_supply.measure_voltage()
         assert 3.0 <= v <= 3.6
@@ -31,7 +33,9 @@ class TestPowerSequence:
         c = power_supply.measure_current()
         assert 0.0 < c < power_supply._current_limit
 
-    def test_chip_registers_accessible_at_nominal_power(self, virtual_chip: VirtualChip, power_supply: PowerSupply) -> None:
+    def test_chip_registers_accessible_at_nominal_power(
+        self, virtual_chip: VirtualChip, power_supply: PowerSupply
+    ) -> None:
         v = power_supply.measure_voltage()
         device_id = virtual_chip.read_register(0x00)
         assert device_id == 0xA5

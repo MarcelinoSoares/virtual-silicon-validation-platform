@@ -80,10 +80,24 @@ class FaultConfig:
             probability=float(data.get("probability", 1.0)),
             trigger_after_cycles=data.get("trigger_after_cycles"),
             description=data.get("description", ""),
-            metadata={k: v for k, v in data.items() if k not in (
-                "id", "type", "enabled", "address", "bit", "value",
-                "voltage", "temperature", "probability", "trigger_after_cycles", "description",
-            )},
+            metadata={
+                k: v
+                for k, v in data.items()
+                if k
+                not in (
+                    "id",
+                    "type",
+                    "enabled",
+                    "address",
+                    "bit",
+                    "value",
+                    "voltage",
+                    "temperature",
+                    "probability",
+                    "trigger_after_cycles",
+                    "description",
+                )
+            },
         )
 
 
@@ -118,7 +132,9 @@ def load_fault_configs(yaml_path: str | Path) -> list[FaultConfig]:
         faults_data = data.get("faults", [])
         configs = [FaultConfig.from_dict(fd) for fd in faults_data]
         enabled = [c for c in configs if c.enabled]
-        logger.info("Loaded %d fault configs (%d enabled) from %s.", len(configs), len(enabled), path)
+        logger.info(
+            "Loaded %d fault configs (%d enabled) from %s.", len(configs), len(enabled), path
+        )
         return enabled
     except yaml.YAMLError as exc:
         raise FaultInjectionError(f"Failed to parse fault config: {exc}") from exc

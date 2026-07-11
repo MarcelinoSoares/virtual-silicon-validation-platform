@@ -76,7 +76,9 @@ class TestAPIHealth:
 
     def test_inject_fault_stuck_bit(self) -> None:
         client.post("/chip/power")
-        resp = client.post("/faults/inject", json={"fault_type": "stuck_bit", "address": 5, "bit": 0, "value": 1})
+        resp = client.post(
+            "/faults/inject", json={"fault_type": "stuck_bit", "address": 5, "bit": 0, "value": 1}
+        )
         assert resp.status_code == 200
 
     def test_inject_unknown_fault_fails(self) -> None:

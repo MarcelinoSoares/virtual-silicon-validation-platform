@@ -174,11 +174,13 @@ class FaultInjector:
             chip.sram.write(cfg.address, corrupted)
 
         elif cfg.fault_type == FaultType.REGISTER_WRITE_FAILURE:
+
             def write_fault_callback(event: str, address: int, cycle_count: int) -> None:
                 if event == "register_write" and cfg.address is not None and address == cfg.address:
                     raise FaultInjectionError(
                         f"Register write failure injected at 0x{address:04X}."
                     )
+
             chip.add_fault_callback(write_fault_callback)
 
         elif cfg.fault_type == FaultType.REGISTER_VALUE_CORRUPTION:

@@ -57,9 +57,7 @@ class Spectrometer:
             InstrumentMeasurementError: If percent is out of range.
         """
         if not 0.0 <= percent <= 100.0:
-            raise InstrumentMeasurementError(
-                f"Brightness percentage must be 0–100, got {percent}."
-            )
+            raise InstrumentMeasurementError(f"Brightness percentage must be 0–100, got {percent}.")
         self._display_brightness_pct = percent
 
     def measure_brightness(self) -> float:

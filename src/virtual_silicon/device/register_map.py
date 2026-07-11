@@ -165,9 +165,7 @@ class RegisterMap:
     def _get_register(self, address: int) -> Register:
         """Internal helper to get register by address."""
         if address not in self._registers:
-            raise InvalidRegisterAddressError(
-                f"No register at address 0x{address:04X}."
-            )
+            raise InvalidRegisterAddressError(f"No register at address 0x{address:04X}.")
         return self._registers[address]
 
     def reset_all(self) -> None:

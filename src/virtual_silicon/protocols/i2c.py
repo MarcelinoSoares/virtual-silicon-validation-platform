@@ -113,18 +113,26 @@ class I2CBus:
             log.data = [value]
             log.success = True
             duration = (time.monotonic() - start) * 1000
-            logger.debug("I2C read 0x%02X[0x%02X] = 0x%02X", device_address, register_address, value)
-            return I2CTransaction(device_address, register_address, [value], "read", True, duration_ms=duration)
+            logger.debug(
+                "I2C read 0x%02X[0x%02X] = 0x%02X", device_address, register_address, value
+            )
+            return I2CTransaction(
+                device_address, register_address, [value], "read", True, duration_ms=duration
+            )
         except (ProtocolTimeoutError, InvalidRegisterAddressError, RegisterAccessError) as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
             logger.warning("I2C read failed: %s", exc)
-            return I2CTransaction(device_address, register_address, [], "read", False, str(exc), duration)
+            return I2CTransaction(
+                device_address, register_address, [], "read", False, str(exc), duration
+            )
         finally:
             self._transactions.append(log)
 
-    def write_register(self, device_address: int, register_address: int, value: int) -> I2CTransaction:
+    def write_register(
+        self, device_address: int, register_address: int, value: int
+    ) -> I2CTransaction:
         """Perform an I2C register write transaction.
 
         Args:
@@ -150,14 +158,20 @@ class I2CBus:
             self._register_map.write(register_address, value)
             log.success = True
             duration = (time.monotonic() - start) * 1000
-            logger.debug("I2C write 0x%02X[0x%02X] = 0x%02X", device_address, register_address, value)
-            return I2CTransaction(device_address, register_address, [value], "write", True, duration_ms=duration)
+            logger.debug(
+                "I2C write 0x%02X[0x%02X] = 0x%02X", device_address, register_address, value
+            )
+            return I2CTransaction(
+                device_address, register_address, [value], "write", True, duration_ms=duration
+            )
         except (ProtocolTimeoutError, InvalidRegisterAddressError, RegisterAccessError) as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
             logger.warning("I2C write failed: %s", exc)
-            return I2CTransaction(device_address, register_address, [], "write", False, str(exc), duration)
+            return I2CTransaction(
+                device_address, register_address, [], "write", False, str(exc), duration
+            )
         finally:
             self._transactions.append(log)
 
@@ -195,12 +209,16 @@ class I2CBus:
             log.data = data
             log.success = True
             duration = (time.monotonic() - start) * 1000
-            return I2CTransaction(device_address, start_register, data, "read_multi", True, duration_ms=duration)
+            return I2CTransaction(
+                device_address, start_register, data, "read_multi", True, duration_ms=duration
+            )
         except ProtocolTimeoutError as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
-            return I2CTransaction(device_address, start_register, [], "read_multi", False, str(exc), duration)
+            return I2CTransaction(
+                device_address, start_register, [], "read_multi", False, str(exc), duration
+            )
         finally:
             self._transactions.append(log)
 
@@ -220,9 +238,7 @@ class I2CBus:
                 f"I2C {operation} timeout (simulated, probability={self._timeout_probability:.2f})."
             )
         if self._rng.random() < self._nack_probability:
-            raise RegisterAccessError(
-                f"I2C NACK received during {operation} (simulated)."
-            )
+            raise RegisterAccessError(f"I2C NACK received during {operation} (simulated).")
 
     def _apply_latency(self) -> None:
         if self._latency_ms > 0:

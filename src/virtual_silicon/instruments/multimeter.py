@@ -71,9 +71,7 @@ class Multimeter:
             InstrumentMeasurementError: If true_resistance is negative.
         """
         if true_resistance < 0:
-            raise InstrumentMeasurementError(
-                f"Resistance cannot be negative: {true_resistance}Ω."
-            )
+            raise InstrumentMeasurementError(f"Resistance cannot be negative: {true_resistance}Ω.")
         noise = self._rng.uniform(-self._tolerance, self._tolerance) * true_resistance
         return round(max(0.0, true_resistance + noise), 4)
 

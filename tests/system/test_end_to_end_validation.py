@@ -50,8 +50,9 @@ class TestEndToEndValidation:
         # 4. Verify device ID
         device_id = chip.get_device_id()
         assert device_id == 0xA5
-        temp_db.save_test_result(eid, "device_id_check", "register", "PASS",
-                                  expected="0xA5", actual=hex(device_id))
+        temp_db.save_test_result(
+            eid, "device_id_check", "register", "PASS", expected="0xA5", actual=hex(device_id)
+        )
 
         # 5. Configure power management
         chip.write_register(0x02, 0x01)
@@ -64,8 +65,9 @@ class TestEndToEndValidation:
         assert sram_passed == len(sram_results), "SRAM tests failed before fault injection"
         for r in sram_results:
             status = "PASS" if r.passed else "FAIL"
-            temp_db.save_test_result(eid, r.test_name, "memory", status,
-                                      duration_ms=r.duration * 1000)
+            temp_db.save_test_result(
+                eid, r.test_name, "memory", status, duration_ms=r.duration * 1000
+            )
 
         # 7. Write register via I2C
         i2c = I2CBus(chip.register_map, device_address=0x48, seed=seed)
@@ -103,8 +105,9 @@ class TestEndToEndValidation:
         assert 24.0 <= temperature <= 26.5
         assert brightness > 0
 
-        temp_db.save_measurement(eid, voltage=voltage, current=current,
-                                  temperature=temperature, brightness=brightness)
+        temp_db.save_measurement(
+            eid, voltage=voltage, current=current, temperature=temperature, brightness=brightness
+        )
         temp_db.save_test_result(eid, "instrument_measurements", "instrument", "PASS")
 
         # 10. Inject SRAM fault
@@ -120,8 +123,9 @@ class TestEndToEndValidation:
         injector = FaultInjector([fault_cfg], seed=seed)
         applied = injector.apply_to_chip(chip, cycle=chip.cycle_count)
         assert "SRAM_STUCK_BIT" in applied
-        temp_db.save_fault_event(eid, "SRAM_STUCK_BIT", "stuck_bit",
-                                  "Stuck bit at address 15, bit 3", chip.cycle_count)
+        temp_db.save_fault_event(
+            eid, "SRAM_STUCK_BIT", "stuck_bit", "Stuck bit at address 15, bit 3", chip.cycle_count
+        )
 
         # 11. Confirm SRAM detects the fault
         post_fault_results = chip.run_memory_tests()
@@ -129,8 +133,9 @@ class TestEndToEndValidation:
         assert len(failing) > 0, "Fault was not detected by memory tests"
         for r in post_fault_results:
             status = "PASS" if r.passed else "FAIL"
-            temp_db.save_test_result(eid, f"post_fault_{r.test_name}", "memory", status,
-                                      error_message=r.error_message)
+            temp_db.save_test_result(
+                eid, f"post_fault_{r.test_name}", "memory", status, error_message=r.error_message
+            )
         temp_db.save_test_result(eid, "sram_fault_detection", "fault", "PASS")
 
         # 12. Inject I2C timeout and confirm it is logged
@@ -144,8 +149,9 @@ class TestEndToEndValidation:
         i2c_injector.apply_to_i2c(i2c, cycle=chip.cycle_count)
         timeout_txn = i2c.read_register(0x48, 0x00)
         assert not timeout_txn.success, "I2C timeout was not triggered"
-        temp_db.save_fault_event(eid, "I2C_TIMEOUT", "i2c_timeout",
-                                  "I2C timeout injected", chip.cycle_count)
+        temp_db.save_fault_event(
+            eid, "I2C_TIMEOUT", "i2c_timeout", "I2C timeout injected", chip.cycle_count
+        )
         temp_db.save_test_result(eid, "i2c_timeout_detection", "fault", "PASS")
 
         # 13. Finalize run in database

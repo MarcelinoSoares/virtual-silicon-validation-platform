@@ -18,7 +18,9 @@ from virtual_silicon.device.virtual_chip import VirtualChip
 from virtual_silicon.faults.fault_injector import FaultInjector
 from virtual_silicon.faults.fault_models import load_fault_configs
 
-app = typer.Typer(name="virtual-silicon", help="Virtual Silicon Validation Platform CLI.", rich_markup_mode="rich")
+app = typer.Typer(
+    name="virtual-silicon", help="Virtual Silicon Validation Platform CLI.", rich_markup_mode="rich"
+)
 console = Console()
 settings = get_settings()
 
@@ -63,7 +65,9 @@ def initialize() -> None:
     chip.power_on()
     get_session(settings.database_url)
     console.print(f"[green]✓[/green] Database initialized at [cyan]{settings.database_url}[/cyan]")
-    console.print(f"[green]✓[/green] Chip powered on. Device ID: [cyan]0x{chip.get_device_id():02X}[/cyan]")
+    console.print(
+        f"[green]✓[/green] Chip powered on. Device ID: [cyan]0x{chip.get_device_id():02X}[/cyan]"
+    )
     console.print(f"[green]✓[/green] Firmware version: [cyan]{chip.get_firmware_version()}[/cyan]")
     console.print(f"[green]✓[/green] SRAM size: [cyan]{chip.sram.size} bytes[/cyan]")
     console.print("[bold green]Platform ready.[/bold green]")
@@ -88,8 +92,20 @@ def run_tests(
     # Register validation
     passed = failed = 0
     reg_tests = [
-        ("device_id_check", "register", chip.get_device_id() == 0xA5, "0xA5", f"0x{chip.get_device_id():02X}"),
-        ("firmware_version_check", "register", chip.get_firmware_version() == "1.0", "1.0", chip.get_firmware_version()),
+        (
+            "device_id_check",
+            "register",
+            chip.get_device_id() == 0xA5,
+            "0xA5",
+            f"0x{chip.get_device_id():02X}",
+        ),
+        (
+            "firmware_version_check",
+            "register",
+            chip.get_firmware_version() == "1.0",
+            "1.0",
+            chip.get_firmware_version(),
+        ),
     ]
     for name, cat, ok, exp, act in reg_tests:
         status = "PASS" if ok else "FAIL"
@@ -106,7 +122,10 @@ def run_tests(
     for result in mem_results:
         status = "PASS" if result.passed else "FAIL"
         repo.save_test_result(
-            eid, result.test_name, "memory", status,
+            eid,
+            result.test_name,
+            "memory",
+            status,
             duration_ms=result.duration * 1000,
             error_message=result.error_message,
         )
@@ -154,7 +173,9 @@ def run_memory_tests() -> None:
 
 @app.command(name="inject-fault")
 def inject_fault(
-    config: str = typer.Option("configs/faults.yaml", "--config", "-c", help="Path to faults YAML."),
+    config: str = typer.Option(
+        "configs/faults.yaml", "--config", "-c", help="Path to faults YAML."
+    ),
 ) -> None:
     """Inject faults from a YAML configuration file."""
     _setup_logging()

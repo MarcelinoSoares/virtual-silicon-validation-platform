@@ -49,17 +49,20 @@ def _get_repo() -> TestRepository:
 
 class RegisterWriteRequest(BaseModel):
     """Request body for a register write."""
+
     value: int
 
 
 class TestRunRequest(BaseModel):
     """Request body to start a test run."""
+
     categories: list[str] = []
     seed: int | None = None
 
 
 class FaultInjectRequest(BaseModel):
     """Request body to inject a fault."""
+
     fault_type: str
     address: int | None = None
     bit: int | None = None
@@ -162,10 +165,13 @@ def inject_fault(body: FaultInjectRequest) -> dict[str, Any]:
     """Inject a fault into the virtual chip."""
     chip = _get_chip()
     from virtual_silicon.faults.fault_models import FaultType
+
     try:
         ft = FaultType(body.fault_type)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Unknown fault type: {body.fault_type}") from exc
+        raise HTTPException(
+            status_code=400, detail=f"Unknown fault type: {body.fault_type}"
+        ) from exc
 
     if ft == FaultType.STUCK_BIT and body.address is not None and body.bit is not None:
         chip.sram.inject_stuck_bit(body.address, body.bit, body.value or 1)

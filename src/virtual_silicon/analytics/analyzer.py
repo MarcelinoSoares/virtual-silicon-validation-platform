@@ -52,7 +52,16 @@ class TestAnalyzer:
 
     def _build_results_df(self, results: list) -> pd.DataFrame:
         if not results:
-            return pd.DataFrame(columns=["execution_id", "test_name", "category", "status", "duration_ms", "firmware_version"])
+            return pd.DataFrame(
+                columns=[
+                    "execution_id",
+                    "test_name",
+                    "category",
+                    "status",
+                    "duration_ms",
+                    "firmware_version",
+                ]
+            )
         rows = [
             {
                 "execution_id": r.execution_id,
@@ -69,7 +78,9 @@ class TestAnalyzer:
 
     def _build_measurements_df(self, measurements: list) -> pd.DataFrame:
         if not measurements:
-            return pd.DataFrame(columns=["execution_id", "voltage", "current", "temperature", "brightness"])
+            return pd.DataFrame(
+                columns=["execution_id", "voltage", "current", "temperature", "brightness"]
+            )
         rows = [
             {
                 "execution_id": m.execution_id,
@@ -113,8 +124,11 @@ class TestAnalyzer:
         if total == 0:
             return AnalyticsSummary(
                 execution_id=execution_id,
-                total_tests=0, passed=0, failed=0,
-                pass_rate=0.0, fail_rate=0.0,
+                total_tests=0,
+                passed=0,
+                failed=0,
+                pass_rate=0.0,
+                fail_rate=0.0,
                 avg_duration_ms=0.0,
             )
 
@@ -124,9 +138,8 @@ class TestAnalyzer:
         fail_rate = round(failed / total * 100, 2)
         avg_duration = round(float(df["duration_ms"].mean()), 3)
 
-        slowest = (
-            df.nlargest(5, "duration_ms")[["test_name", "duration_ms", "status"]]
-            .to_dict(orient="records")
+        slowest = df.nlargest(5, "duration_ms")[["test_name", "duration_ms", "status"]].to_dict(
+            orient="records"
         )
 
         failures_by_cat: dict[str, int] = {}
@@ -164,7 +177,8 @@ class TestAnalyzer:
             fdf = fdf[fdf["execution_id"] == execution_id]
             if not fdf.empty:
                 faults_list = (
-                    fdf.groupby("fault_type").size()
+                    fdf.groupby("fault_type")
+                    .size()
                     .reset_index(name="count")
                     .sort_values("count", ascending=False)
                     .to_dict(orient="records")
@@ -200,11 +214,13 @@ class TestAnalyzer:
         rows = []
         for eid in execution_ids:
             s = self.summarize(eid)
-            rows.append({
-                "execution_id": eid,
-                "total_tests": s.total_tests,
-                "pass_rate": s.pass_rate,
-                "fail_rate": s.fail_rate,
-                "avg_duration_ms": s.avg_duration_ms,
-            })
+            rows.append(
+                {
+                    "execution_id": eid,
+                    "total_tests": s.total_tests,
+                    "pass_rate": s.pass_rate,
+                    "fail_rate": s.fail_rate,
+                    "avg_duration_ms": s.avg_duration_ms,
+                }
+            )
         return pd.DataFrame(rows)

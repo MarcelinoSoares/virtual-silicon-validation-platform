@@ -140,7 +140,9 @@ class PowerSupply:
         noise = self._rng.uniform(-0.005, 0.005)
         current = max(0.0, nominal + noise)
         if current > self._overcurrent_threshold:
-            logger.error("Overcurrent detected! %.3fA > %.3fA limit.", current, self._overcurrent_threshold)
+            logger.error(
+                "Overcurrent detected! %.3fA > %.3fA limit.", current, self._overcurrent_threshold
+            )
             raise InstrumentMeasurementError(
                 f"Overcurrent: {current:.3f}A exceeds limit {self._overcurrent_threshold:.3f}A."
             )

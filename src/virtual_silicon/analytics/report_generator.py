@@ -172,8 +172,13 @@ class ReportGenerator:
         colors = ["#27ae60", "#e74c3c"]
         non_zero = [(lbl, v, c) for lbl, v, c in zip(labels, values, colors, strict=False) if v > 0]
         if non_zero:
-            ax.pie([x[1] for x in non_zero], labels=[x[0] for x in non_zero],  # noqa: E501
-                   colors=[x[2] for x in non_zero], autopct="%1.1f%%", startangle=90)
+            ax.pie(
+                [x[1] for x in non_zero],
+                labels=[x[0] for x in non_zero],  # noqa: E501
+                colors=[x[2] for x in non_zero],
+                autopct="%1.1f%%",
+                startangle=90,
+            )
             ax.set_title("Test Results Overview")
             p = self._charts_dir / "pass_fail.png"
             fig.savefig(p, bbox_inches="tight", dpi=96)
@@ -230,14 +235,16 @@ class ReportGenerator:
     def _generate_csv(self, results: list, execution_id: str) -> Path:
         rows = []
         for r in results:
-            rows.append({
-                "execution_id": getattr(r, "execution_id", execution_id),
-                "test_name": getattr(r, "test_name", ""),
-                "category": getattr(r, "category", ""),
-                "status": getattr(r, "status", ""),
-                "duration_ms": getattr(r, "duration_ms", 0.0),
-                "error_message": getattr(r, "error_message", ""),
-            })
+            rows.append(
+                {
+                    "execution_id": getattr(r, "execution_id", execution_id),
+                    "test_name": getattr(r, "test_name", ""),
+                    "category": getattr(r, "category", ""),
+                    "status": getattr(r, "status", ""),
+                    "duration_ms": getattr(r, "duration_ms", 0.0),
+                    "error_message": getattr(r, "error_message", ""),
+                }
+            )
         df = pd.DataFrame(rows) if rows else pd.DataFrame()
         path = self._output_dir / f"{execution_id}_results.csv"
         df.to_csv(path, index=False)
@@ -291,13 +298,15 @@ class ReportGenerator:
         # Slowest tests table
         if summary.slowest_tests:
             rows = "".join(
-                f"<tr><td>{t.get('test_name','')}</td>"
-                f"<td>{t.get('duration_ms',0):.2f}</td>"
-                f"<td class=\"{'pass' if t.get('status')=='PASS' else 'fail'}\">"
-                f"{t.get('status','')}</td></tr>"
+                f"<tr><td>{t.get('test_name', '')}</td>"
+                f"<td>{t.get('duration_ms', 0):.2f}</td>"
+                f'<td class="{"pass" if t.get("status") == "PASS" else "fail"}">'
+                f"{t.get('status', '')}</td></tr>"
                 for t in summary.slowest_tests
             )
-            slowest_table = f"<table><tr><th>Test</th><th>Duration (ms)</th><th>Status</th></tr>{rows}</table>"
+            slowest_table = (
+                f"<table><tr><th>Test</th><th>Duration (ms)</th><th>Status</th></tr>{rows}</table>"
+            )
         else:
             slowest_table = "<p>No test duration data.</p>"
 
@@ -331,7 +340,9 @@ class ReportGenerator:
             avg_duration_ms=summary.avg_duration_ms,
             avg_voltage=f"{summary.avg_voltage:.3f}V" if summary.avg_voltage else "N/A",
             avg_current=f"{summary.avg_current:.4f}A" if summary.avg_current else "N/A",
-            avg_temperature=f"{summary.avg_temperature:.2f}°C" if summary.avg_temperature else "N/A",
+            avg_temperature=f"{summary.avg_temperature:.2f}°C"
+            if summary.avg_temperature
+            else "N/A",
             failures_by_category_table=failures_table,
             slowest_tests_table=slowest_table,
             chart_images=chart_imgs,

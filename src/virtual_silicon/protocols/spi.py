@@ -114,25 +114,52 @@ class SPIBus:
                     log.success = False
                     log.error = "Corrupted SPI response (simulated)."
                     duration = (time.monotonic() - start) * 1000
-                    return SPITransaction(command, register_address, [0x00], [value], False, log.error, duration, self._clock_hz)
+                    return SPITransaction(
+                        command,
+                        register_address,
+                        [0x00],
+                        [value],
+                        False,
+                        log.error,
+                        duration,
+                        self._clock_hz,
+                    )
                 log.data = [value]
                 log.success = True
                 duration = (time.monotonic() - start) * 1000
                 logger.debug("SPI read reg=0x%02X → 0x%02X", register_address, value)
-                return SPITransaction(command, register_address, [0x00], [value], True, duration_ms=duration, clock_hz=self._clock_hz)
+                return SPITransaction(
+                    command,
+                    register_address,
+                    [0x00],
+                    [value],
+                    True,
+                    duration_ms=duration,
+                    clock_hz=self._clock_hz,
+                )
             else:
                 self._register_map.write(register_address, data)
                 log.success = True
                 duration = (time.monotonic() - start) * 1000
                 logger.debug("SPI write reg=0x%02X ← 0x%02X", register_address, data)
-                return SPITransaction(command, register_address, [data], [0x00], True, duration_ms=duration, clock_hz=self._clock_hz)
+                return SPITransaction(
+                    command,
+                    register_address,
+                    [data],
+                    [0x00],
+                    True,
+                    duration_ms=duration,
+                    clock_hz=self._clock_hz,
+                )
 
         except (ProtocolTimeoutError, InvalidRegisterAddressError, RegisterAccessError) as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
             logger.warning("SPI transfer failed: %s", exc)
-            return SPITransaction(command, register_address, [data], [], False, str(exc), duration, self._clock_hz)
+            return SPITransaction(
+                command, register_address, [data], [], False, str(exc), duration, self._clock_hz
+            )
         finally:
             self._transactions.append(log)
 

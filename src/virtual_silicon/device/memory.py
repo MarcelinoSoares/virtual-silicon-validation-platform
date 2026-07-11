@@ -142,14 +142,12 @@ class SRAM:
             if stuck_val == 0:
                 value &= ~(1 << bit)
             else:
-                value |= (1 << bit)
+                value |= 1 << bit
         return value
 
     def _validate_address(self, address: int) -> None:
         if address < 0 or address >= self._size:
-            raise MemoryValidationError(
-                f"Address {address} out of range [0, {self._size - 1}]."
-            )
+            raise MemoryValidationError(f"Address {address} out of range [0, {self._size - 1}].")
 
     def _make_result(
         self,
@@ -183,8 +181,12 @@ class SRAM:
                 read_back = self.read(addr)
                 if read_back != pattern:
                     return self._make_result(
-                        "walking_ones", start, MemoryTestStatus.FAIL,
-                        addr, pattern, read_back,
+                        "walking_ones",
+                        start,
+                        MemoryTestStatus.FAIL,
+                        addr,
+                        pattern,
+                        read_back,
                         f"Walking ones mismatch at 0x{addr:04X} bit {bit}.",
                     )
         return self._make_result("walking_ones", start)
@@ -201,8 +203,12 @@ class SRAM:
                 read_back = self.read(addr)
                 if read_back != pattern:
                     return self._make_result(
-                        "walking_zeros", start, MemoryTestStatus.FAIL,
-                        addr, pattern, read_back,
+                        "walking_zeros",
+                        start,
+                        MemoryTestStatus.FAIL,
+                        addr,
+                        pattern,
+                        read_back,
                         f"Walking zeros mismatch at 0x{addr:04X} bit {bit}.",
                     )
         return self._make_result("walking_zeros", start)
@@ -217,8 +223,12 @@ class SRAM:
             actual = self.read(addr)
             if actual != expected:
                 return self._make_result(
-                    "checkerboard", start, MemoryTestStatus.FAIL,
-                    addr, expected, actual,
+                    "checkerboard",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    expected,
+                    actual,
                     f"Checkerboard mismatch at 0x{addr:04X}.",
                 )
         return self._make_result("checkerboard", start)
@@ -233,8 +243,12 @@ class SRAM:
             actual = self.read(addr)
             if actual != expected:
                 return self._make_result(
-                    "inverse_checkerboard", start, MemoryTestStatus.FAIL,
-                    addr, expected, actual,
+                    "inverse_checkerboard",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    expected,
+                    actual,
                     f"Inverse checkerboard mismatch at 0x{addr:04X}.",
                 )
         return self._make_result("inverse_checkerboard", start)
@@ -249,8 +263,12 @@ class SRAM:
             actual = self.read(addr)
             if actual != expected:
                 return self._make_result(
-                    "address_pattern", start, MemoryTestStatus.FAIL,
-                    addr, expected, actual,
+                    "address_pattern",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    expected,
+                    actual,
                     f"Address pattern mismatch at 0x{addr:04X}.",
                 )
         return self._make_result("address_pattern", start)
@@ -266,8 +284,12 @@ class SRAM:
             actual = self.read(addr)
             if actual != expected:
                 return self._make_result(
-                    "random_readwrite", start, MemoryTestStatus.FAIL,
-                    addr, expected, actual,
+                    "random_readwrite",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    expected,
+                    actual,
                     f"Random RW mismatch at 0x{addr:04X}.",
                 )
         return self._make_result("random_readwrite", start)
@@ -283,8 +305,13 @@ class SRAM:
             actual = self.read(addr)
             if actual != 0x00:
                 return self._make_result(
-                    "march_c_minus", start, MemoryTestStatus.FAIL,
-                    addr, 0x00, actual, f"March C- step2 fail at 0x{addr:04X}.",
+                    "march_c_minus",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    0x00,
+                    actual,
+                    f"March C- step2 fail at 0x{addr:04X}.",
                 )
             self.write(addr, 0xFF)
         # Step 3: ascending — read 1, write 0
@@ -292,8 +319,13 @@ class SRAM:
             actual = self.read(addr)
             if actual != 0xFF:
                 return self._make_result(
-                    "march_c_minus", start, MemoryTestStatus.FAIL,
-                    addr, 0xFF, actual, f"March C- step3 fail at 0x{addr:04X}.",
+                    "march_c_minus",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    0xFF,
+                    actual,
+                    f"March C- step3 fail at 0x{addr:04X}.",
                 )
             self.write(addr, 0x00)
         # Step 4: descending — read 0, write 1
@@ -301,8 +333,13 @@ class SRAM:
             actual = self.read(addr)
             if actual != 0x00:
                 return self._make_result(
-                    "march_c_minus", start, MemoryTestStatus.FAIL,
-                    addr, 0x00, actual, f"March C- step4 fail at 0x{addr:04X}.",
+                    "march_c_minus",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    0x00,
+                    actual,
+                    f"March C- step4 fail at 0x{addr:04X}.",
                 )
             self.write(addr, 0xFF)
         # Step 5: descending — read 1, write 0
@@ -310,8 +347,13 @@ class SRAM:
             actual = self.read(addr)
             if actual != 0xFF:
                 return self._make_result(
-                    "march_c_minus", start, MemoryTestStatus.FAIL,
-                    addr, 0xFF, actual, f"March C- step5 fail at 0x{addr:04X}.",
+                    "march_c_minus",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    0xFF,
+                    actual,
+                    f"March C- step5 fail at 0x{addr:04X}.",
                 )
             self.write(addr, 0x00)
         # Step 6: verify all zero
@@ -319,8 +361,13 @@ class SRAM:
             actual = self.read(addr)
             if actual != 0x00:
                 return self._make_result(
-                    "march_c_minus", start, MemoryTestStatus.FAIL,
-                    addr, 0x00, actual, f"March C- step6 fail at 0x{addr:04X}.",
+                    "march_c_minus",
+                    start,
+                    MemoryTestStatus.FAIL,
+                    addr,
+                    0x00,
+                    actual,
+                    f"March C- step6 fail at 0x{addr:04X}.",
                 )
         return self._make_result("march_c_minus", start)
 
@@ -334,8 +381,12 @@ class SRAM:
                 actual = self.read(addr)
                 if actual != pattern:
                     return self._make_result(
-                        "boundary_addresses", start, MemoryTestStatus.FAIL,
-                        addr, pattern, actual,
+                        "boundary_addresses",
+                        start,
+                        MemoryTestStatus.FAIL,
+                        addr,
+                        pattern,
+                        actual,
                         f"Boundary test mismatch at 0x{addr:04X} pattern 0x{pattern:02X}.",
                     )
         return self._make_result("boundary_addresses", start)
@@ -352,8 +403,12 @@ class SRAM:
                 actual = self.read(addr)
                 if actual != expected:
                     return self._make_result(
-                        "data_retention", start, MemoryTestStatus.FAIL,
-                        addr, expected, actual,
+                        "data_retention",
+                        start,
+                        MemoryTestStatus.FAIL,
+                        addr,
+                        expected,
+                        actual,
                         f"Data retention failure at 0x{addr:04X}.",
                     )
         return self._make_result("data_retention", start)
@@ -377,5 +432,7 @@ class SRAM:
             result = test_fn()
             results.append(result)
             if not result.passed:
-                logger.warning("Memory test FAILED: %s — %s", result.test_name, result.error_message)
+                logger.warning(
+                    "Memory test FAILED: %s — %s", result.test_name, result.error_message
+                )
         return results

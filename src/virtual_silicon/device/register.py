@@ -128,9 +128,7 @@ class Register:
         masked_value = value & self.bit_mask
         self._value = masked_value
         self._write_count += 1
-        logger.debug(
-            "Wrote register '%s' [0x%04X] = 0x%X", self.name, self.address, masked_value
-        )
+        logger.debug("Wrote register '%s' [0x%04X] = 0x%X", self.name, self.address, masked_value)
 
     def reset(self) -> None:
         """Reset register to its default reset value."""

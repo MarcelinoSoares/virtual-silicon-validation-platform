@@ -156,6 +156,7 @@ class TestRegisterMap:
         and line 84 in register.py — the value property)."""
         # Inject a write-only register into the map
         from virtual_silicon.device.register import AccessType, Register
+
         wo_reg = Register("WO_TEST", 0xFE, access=AccessType.WRITE_ONLY, reset_value=0xAB)
         register_map._registers[0xFE] = wo_reg
         register_map._name_index["WO_TEST"] = wo_reg
