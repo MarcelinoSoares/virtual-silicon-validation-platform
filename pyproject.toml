@@ -78,7 +78,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "ANN", "B", "C4", "SIM"]
-ignore = ["ANN101", "ANN102", "E501"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN001", "ANN201", "ANN202", "ANN401"]

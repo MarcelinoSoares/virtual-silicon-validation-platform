@@ -22,11 +22,10 @@ class TestDatabaseSession:
         """Session rolls back and re-raises on exception (lines 53-55)."""
         db = DatabaseSession("sqlite:///:memory:")
         db.create_tables()
-        with pytest.raises(ValueError, match="forced rollback"):
-            with db.session() as sess:
-                # Use the session briefly then raise to trigger rollback
-                _ = sess  # touch session
-                raise ValueError("forced rollback")
+        with pytest.raises(ValueError, match="forced rollback"), db.session() as sess:
+            # Use the session briefly then raise to trigger rollback
+            _ = sess  # touch session
+            raise ValueError("forced rollback")
 
     def test_engine_property(self) -> None:
         """engine property returns the underlying SQLAlchemy engine (line 62)."""
