@@ -258,3 +258,37 @@ class TestMemoryEdgeCases:
 
         assert result.status == MemoryTestStatus.FAIL
         assert "step6" in result.error_message
+
+
+@pytest.mark.unit
+@pytest.mark.memory
+class TestSRAMPowerOnPattern:
+    def test_zeroed_pattern_is_default(self) -> None:
+        sram = SRAM(size=16, seed=42)
+        sram.power_on_init()
+        assert all(sram.read(i) == 0x00 for i in range(16))
+
+    def test_random_pattern_is_not_all_zero(self) -> None:
+        sram = SRAM(size=64, seed=42, power_on_pattern="random")
+        sram.power_on_init()
+        values = [sram.read(i) for i in range(64)]
+        assert any(v != 0x00 for v in values)
+
+    def test_random_pattern_is_deterministic(self) -> None:
+        sram_a = SRAM(size=32, seed=7, power_on_pattern="random")
+        sram_b = SRAM(size=32, seed=7, power_on_pattern="random")
+        sram_a.power_on_init()
+        sram_b.power_on_init()
+        assert [sram_a.read(i) for i in range(32)] == [sram_b.read(i) for i in range(32)]
+
+    def test_undefined_pattern_fills_with_sentinel(self) -> None:
+        sram = SRAM(size=16, seed=42, power_on_pattern="undefined")
+        sram.power_on_init()
+        assert all(sram.read(i) == 0xBE for i in range(16))
+
+    def test_on_access_callback_fires_on_read_and_write(self) -> None:
+        calls: list[str] = []
+        sram = SRAM(size=8, seed=42, on_access=lambda: calls.append("x"))
+        sram.write(0, 0xAA)
+        sram.read(0)
+        assert len(calls) == 2

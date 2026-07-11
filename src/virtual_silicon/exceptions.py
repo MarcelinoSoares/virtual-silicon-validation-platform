@@ -35,6 +35,10 @@ class ProtocolTimeoutError(ProtocolError):
     """Raised when a protocol transaction times out."""
 
 
+class I2CDeviceAddressError(ProtocolError):
+    """Raised when an I2C transaction targets an unrecognized device address (no ACK)."""
+
+
 class InstrumentError(VirtualSiliconError):
     """Errors originating from virtual instruments."""
 

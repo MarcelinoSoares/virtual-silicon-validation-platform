@@ -7,7 +7,9 @@ import random
 import time
 from dataclasses import dataclass, field
 
+from virtual_silicon.device.byte_order import ByteOrder, serialize_register
 from virtual_silicon.device.register import InvalidRegisterAddressError, RegisterAccessError
+from virtual_silicon.exceptions import I2CDeviceAddressError
 from virtual_silicon.protocols.base import ProtocolTimeoutError, RegisterDevice, TransactionLog
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ class I2CBus:
         device_address: int = DEFAULT_DEVICE_ADDRESS,
         latency_ms: float = 0.0,
         seed: int | None = None,
+        byte_order: ByteOrder = ByteOrder.BIG,
     ) -> None:
         """Initialize the I2C bus.
 
@@ -54,11 +57,13 @@ class I2CBus:
             device_address: 7-bit I2C device address.
             latency_ms: Simulated transaction latency in milliseconds.
             seed: Random seed for fault probability.
+            byte_order: Byte order for serializing 16-bit register values (default: BIG).
         """
         self._device = register_map
         self._device_address = device_address
         self._latency_ms = latency_ms
         self._rng = random.Random(seed)
+        self._byte_order = byte_order
         self._transactions: list[TransactionLog] = []
         self._timeout_probability: float = 0.0
         self._nack_probability: float = 0.0
@@ -114,16 +119,22 @@ class I2CBus:
             self._simulate_faults("read")
             self._apply_latency()
             value = self._device.read_register(register_address)
-            log.data = [value]
+            data = serialize_register(value, self._byte_order)
+            log.data = data
             log.success = True
             duration = (time.monotonic() - start) * 1000
             logger.debug(
-                "I2C read 0x%02X[0x%02X] = 0x%02X", device_address, register_address, value
+                "I2C read 0x%02X[0x%02X] = 0x%04X", device_address, register_address, value
             )
             return I2CTransaction(
-                device_address, register_address, [value], "read", True, duration_ms=duration
+                device_address, register_address, data, "read", True, duration_ms=duration
             )
-        except (ProtocolTimeoutError, InvalidRegisterAddressError, RegisterAccessError) as exc:
+        except (
+            ProtocolTimeoutError,
+            I2CDeviceAddressError,
+            InvalidRegisterAddressError,
+            RegisterAccessError,
+        ) as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
@@ -168,7 +179,12 @@ class I2CBus:
             return I2CTransaction(
                 device_address, register_address, [value], "write", True, duration_ms=duration
             )
-        except (ProtocolTimeoutError, InvalidRegisterAddressError, RegisterAccessError) as exc:
+        except (
+            ProtocolTimeoutError,
+            I2CDeviceAddressError,
+            InvalidRegisterAddressError,
+            RegisterAccessError,
+        ) as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
@@ -201,17 +217,18 @@ class I2CBus:
             self._validate_address(device_address)
             self._simulate_faults("read_multi")
             self._apply_latency()
-            data = []
+            data: list[int] = []
+            registers_read = 0
             for offset in range(count):
                 try:
                     val = self._device.read_register(start_register + offset)
-                    data.append(val)
+                    data.extend(serialize_register(val, self._byte_order))
+                    registers_read += 1
                     if self._rng.random() < self._partial_probability:
                         break
                 except InvalidRegisterAddressError:
                     break
-            transferred = len(data)
-            success = transferred == count
+            success = registers_read == count
             log.data = data
             log.success = success
             duration = (time.monotonic() - start) * 1000
@@ -247,7 +264,7 @@ class I2CBus:
 
     def _validate_address(self, address: int) -> None:
         if address != self._device_address:
-            raise InvalidRegisterAddressError(
+            raise I2CDeviceAddressError(
                 f"No I2C device at address 0x{address:02X}. Expected 0x{self._device_address:02X}."
             )
 

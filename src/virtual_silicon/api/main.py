@@ -124,7 +124,10 @@ def write_register(address: int, body: RegisterWriteRequest) -> dict[str, Any]:
 def reset_chip() -> dict[str, str]:
     """Reset the chip to default state."""
     chip = _get_chip()
-    chip.reset()
+    if chip.powered:
+        chip.warm_reset()
+    else:
+        chip.power_on()
     return {"status": "reset", "message": "Chip registers and SRAM reset."}
 
 

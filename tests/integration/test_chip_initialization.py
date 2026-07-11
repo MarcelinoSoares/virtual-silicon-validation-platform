@@ -36,6 +36,28 @@ class TestChipInitialization:
         with pytest.raises(DeviceNotPoweredError):
             unpowered_chip.read_register(0x00)
 
+    def test_get_device_id_requires_power(self, unpowered_chip: VirtualChip) -> None:
+        with pytest.raises(DeviceNotPoweredError):
+            unpowered_chip.get_device_id()
+
+    def test_get_firmware_version_requires_power(self, unpowered_chip: VirtualChip) -> None:
+        with pytest.raises(DeviceNotPoweredError):
+            unpowered_chip.get_firmware_version()
+
+    def test_warm_reset_requires_power(self, unpowered_chip: VirtualChip) -> None:
+        with pytest.raises(DeviceNotPoweredError):
+            unpowered_chip.warm_reset()
+
+    def test_get_device_id_increments_cycle_count(self, virtual_chip: VirtualChip) -> None:
+        before = virtual_chip.cycle_count
+        virtual_chip.get_device_id()
+        assert virtual_chip.cycle_count == before + 1
+
+    def test_run_memory_tests_increments_cycle_count(self, virtual_chip: VirtualChip) -> None:
+        before = virtual_chip.cycle_count
+        virtual_chip.run_memory_tests()
+        assert virtual_chip.cycle_count > before
+
     def test_health_status_structure(self, virtual_chip: VirtualChip) -> None:
         health = virtual_chip.get_health_status()
         assert "powered" in health
@@ -45,7 +67,7 @@ class TestChipInitialization:
 
     def test_reset_after_writes(self, virtual_chip: VirtualChip) -> None:
         virtual_chip.write_register(0x02, 0x0F)
-        virtual_chip.reset()
+        virtual_chip.warm_reset()
         assert virtual_chip.read_register(0x02) == 0x00
 
     def test_power_off_then_on_clears_state(self) -> None:

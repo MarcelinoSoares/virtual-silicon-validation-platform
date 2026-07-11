@@ -173,8 +173,8 @@ class TestEndToEndValidation:
         assert paths["csv"].exists()
         assert paths["json"].exists()
 
-        # 15. Reset the chip
-        chip.reset()
+        # 15. Power cycle the chip (power-on reset)
+        chip.power_off()
         chip.power_on()
         assert chip.read_register(0x02) == 0x00
 
@@ -182,6 +182,7 @@ class TestEndToEndValidation:
         final_device_id = chip.read_register(0x00)
         assert final_device_id == 0xA5, "Device ID mismatch after reset"
         assert chip.get_firmware_version() == "1.0"
-        assert chip.cycle_count == 2  # read_register(0x02) + read_register(0x00) after power_on
+        # read_register(0x02) + read_register(0x00) + get_firmware_version() = 3 cycles
+        assert chip.cycle_count == 3
 
         print(f"\nE2E Validation Complete: {summary.passed} passed, {summary.failed} failed")
