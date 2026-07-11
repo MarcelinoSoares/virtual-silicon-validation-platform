@@ -107,6 +107,16 @@ class TestCLIUnpoweredChip:
         finally:
             self._restore(saved_chip, saved_repo)
 
+    def test_reset_chip_powers_on_if_not_powered(self) -> None:
+        """reset-chip calls power_on() when chip is not powered (line 247)."""
+        saved_chip, saved_repo = self._save_and_clear()
+        try:
+            result = runner.invoke(app, ["reset-chip"])
+            assert result.exit_code == 0
+            assert "reset" in result.output.lower()
+        finally:
+            self._restore(saved_chip, saved_repo)
+
 
 @pytest.mark.unit
 class TestCLIReportNoRuns:

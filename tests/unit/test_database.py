@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from virtual_silicon.database.repository import TestRepository
@@ -38,6 +40,16 @@ class TestDatabaseSession:
         """get_session() creates and returns an initialized DatabaseSession."""
         db = get_session("sqlite:///:memory:")
         assert db is not None
+
+    def test_non_sqlite_url_uses_plain_engine(self) -> None:
+        """Non-SQLite URLs use plain create_engine without connect_args (line 39)."""
+        mock_engine = MagicMock()
+        with patch(
+            "virtual_silicon.database.session.create_engine", return_value=mock_engine
+        ) as mock_ce:
+            db = DatabaseSession("postgresql://user:pass@localhost/test")
+            mock_ce.assert_called_once_with("postgresql://user:pass@localhost/test")
+            assert db.engine is mock_engine
         assert db.engine is not None
 
 
