@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 
 import virtual_silicon.api.main as _api_mod
 from virtual_silicon.api.main import app
+from virtual_silicon.database.repository import TestRepository
+from virtual_silicon.database.session import get_session
 from virtual_silicon.device.virtual_chip import VirtualChip
 
 client = TestClient(app)
@@ -172,3 +174,84 @@ class TestAPIFaultAndReport:
             assert resp.status_code == 404
         finally:
             _api_mod._repo = saved
+
+
+@pytest.mark.unit
+class TestAPIBugFixes:
+    """Regression tests for P0/P1 bug fixes."""
+
+    def _make_fresh_chip(self) -> VirtualChip:
+        chip = VirtualChip(sram_size=256, seed=42)
+        chip.power_on()
+        return chip
+
+    def _make_in_memory_repo(self) -> TestRepository:
+        db = get_session("sqlite:///:memory:")
+        return TestRepository(db)
+
+    def test_inject_stuck_at_zero_not_replaced_by_one(self) -> None:
+        """POST /faults/inject with value=0 must inject stuck-at-zero, not stuck-at-one."""
+        saved_chip = _api_mod._chip
+        chip = self._make_fresh_chip()
+        _api_mod._chip = chip
+        try:
+            resp = client.post(
+                "/faults/inject",
+                json={"fault_type": "stuck_bit", "address": 10, "bit": 2, "value": 0},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "injected"
+            assert chip.sram._stuck_bits.get(10, {}).get(2) == 0
+        finally:
+            _api_mod._chip = saved_chip
+
+    def test_inject_stuck_bit_invalid_value_returns_422(self) -> None:
+        """POST /faults/inject with value outside {0,1} must return 422."""
+        resp = client.post(
+            "/faults/inject",
+            json={"fault_type": "stuck_bit", "address": 10, "bit": 2, "value": 5},
+        )
+        assert resp.status_code == 422
+
+    def test_run_tests_persists_results_to_database(self) -> None:
+        """POST /tests/run must write results so GET /results returns them."""
+        saved_chip = _api_mod._chip
+        saved_repo = _api_mod._repo
+        chip = self._make_fresh_chip()
+        repo = self._make_in_memory_repo()
+        _api_mod._chip = chip
+        _api_mod._repo = repo
+        try:
+            run_resp = client.post("/tests/run", json={})
+            assert run_resp.status_code == 200
+            execution_id = run_resp.json()["execution_id"]
+            total = run_resp.json()["total"]
+
+            results_resp = client.get(f"/results?execution_id={execution_id}")
+            assert results_resp.status_code == 200
+            saved = results_resp.json()
+            assert len(saved) == total
+            assert all(r["status"] in ("PASS", "FAIL") for r in saved)
+        finally:
+            _api_mod._chip = saved_chip
+            _api_mod._repo = saved_repo
+
+    def test_run_tests_appears_in_latest_report(self) -> None:
+        """GET /reports/latest must reflect the run created by POST /tests/run."""
+        saved_chip = _api_mod._chip
+        saved_repo = _api_mod._repo
+        chip = self._make_fresh_chip()
+        repo = self._make_in_memory_repo()
+        _api_mod._chip = chip
+        _api_mod._repo = repo
+        try:
+            run_resp = client.post("/tests/run", json={})
+            assert run_resp.status_code == 200
+            execution_id = run_resp.json()["execution_id"]
+
+            report_resp = client.get("/reports/latest")
+            assert report_resp.status_code == 200
+            assert report_resp.json()["execution_id"] == execution_id
+        finally:
+            _api_mod._chip = saved_chip
+            _api_mod._repo = saved_repo

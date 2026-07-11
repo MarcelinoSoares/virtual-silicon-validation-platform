@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from virtual_silicon.database.models import Base
 
@@ -24,8 +25,18 @@ class DatabaseSession:
             database_url: SQLAlchemy-compatible database URL.
         """
         self._url = database_url
-        connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-        self._engine = create_engine(database_url, connect_args=connect_args)
+        if ":memory:" in database_url:
+            self._engine = create_engine(
+                database_url,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        elif database_url.startswith("sqlite"):
+            self._engine = create_engine(
+                database_url, connect_args={"check_same_thread": False}
+            )
+        else:
+            self._engine = create_engine(database_url)
         self._session_factory = sessionmaker(bind=self._engine, autoflush=False, autocommit=False)
         logger.debug("DatabaseSession created for %s.", database_url)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -56,9 +56,6 @@ class RegisterWriteRequest(BaseModel):
 class TestRunRequest(BaseModel):
     """Request body to start a test run."""
 
-    categories: list[str] = []
-    seed: int | None = None
-
 
 class FaultInjectRequest(BaseModel):
     """Request body to inject a fault."""
@@ -66,7 +63,7 @@ class FaultInjectRequest(BaseModel):
     fault_type: str
     address: int | None = None
     bit: int | None = None
-    value: int | None = None
+    value: Literal[0, 1] | None = None
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -145,12 +142,32 @@ def run_tests(body: TestRunRequest) -> dict[str, Any]:
     chip = _get_chip()
     if not chip.powered:
         raise HTTPException(status_code=409, detail="Chip must be powered on before running tests.")
+
+    execution_id = str(uuid.uuid4())
+    repo = _get_repo()
+    repo.create_test_run(execution_id)
+
     results = chip.run_memory_tests()
+
+    for r in results:
+        repo.save_test_result(
+            execution_id=execution_id,
+            test_name=r.test_name,
+            category="memory",
+            status="PASS" if r.passed else "FAIL",
+            duration_ms=round(r.duration * 1000, 3),
+            error_message=r.error_message or "",
+        )
+
+    passed = sum(1 for r in results if r.passed)
+    failed = sum(1 for r in results if not r.passed)
+    repo.finish_test_run(execution_id, passed, failed)
+
     return {
-        "execution_id": str(uuid.uuid4()),
+        "execution_id": execution_id,
         "total": len(results),
-        "passed": sum(1 for r in results if r.passed),
-        "failed": sum(1 for r in results if not r.passed),
+        "passed": passed,
+        "failed": failed,
         "results": [
             {
                 "test_name": r.test_name,
@@ -177,7 +194,8 @@ def inject_fault(body: FaultInjectRequest) -> dict[str, Any]:
         ) from exc
 
     if ft == FaultType.STUCK_BIT and body.address is not None and body.bit is not None:
-        chip.sram.inject_stuck_bit(body.address, body.bit, body.value or 1)
+        stuck_value = 1 if body.value is None else body.value
+        chip.sram.inject_stuck_bit(body.address, body.bit, stuck_value)
         return {"status": "injected", "fault_type": ft.value, "address": body.address}
 
     return {"status": "no_action", "detail": "Fault type requires chip-level configuration."}

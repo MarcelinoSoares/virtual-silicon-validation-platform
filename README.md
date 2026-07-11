@@ -55,7 +55,7 @@ Dependencies always flow inward. The `device` layer has no dependencies on proto
 **Requirements:** Python 3.12+
 
 ```bash
-git clone https://github.com/marcelinodeoliveira91/virtual-silicon-validation-platform.git
+git clone https://github.com/MarcelinoSoares/virtual-silicon-validation-platform.git
 cd virtual-silicon-validation-platform
 
 python3.12 -m venv .venv
