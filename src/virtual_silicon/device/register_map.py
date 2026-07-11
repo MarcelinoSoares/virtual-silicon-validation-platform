@@ -146,6 +146,14 @@ class RegisterMap:
         reg = self._get_register(address)
         reg.write(value)
 
+    def read_register(self, address: int) -> int:
+        """Alias for read() — satisfies the RegisterDevice protocol."""
+        return self.read(address)
+
+    def write_register(self, address: int, value: int) -> None:
+        """Alias for write() — satisfies the RegisterDevice protocol."""
+        self.write(address, value)
+
     def get_by_name(self, name: str) -> Register:
         """Get register by name.
 

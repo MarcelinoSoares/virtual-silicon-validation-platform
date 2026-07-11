@@ -8,8 +8,7 @@ import time
 from dataclasses import dataclass
 
 from virtual_silicon.device.register import InvalidRegisterAddressError, RegisterAccessError
-from virtual_silicon.device.register_map import RegisterMap
-from virtual_silicon.protocols.base import ProtocolTimeoutError, TransactionLog
+from virtual_silicon.protocols.base import ProtocolTimeoutError, RegisterDevice, TransactionLog
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ class SPIBus:
 
     def __init__(
         self,
-        register_map: RegisterMap,
+        register_map: RegisterDevice,
         clock_hz: int = 1_000_000,
         latency_ms: float = 0.0,
         seed: int | None = None,
@@ -48,12 +47,12 @@ class SPIBus:
         """Initialize the SPI bus.
 
         Args:
-            register_map: The chip's register map.
+            register_map: Device backing the register space (VirtualChip or RegisterMap).
             clock_hz: Simulated SPI clock frequency in Hz.
             latency_ms: Simulated transaction latency in milliseconds.
             seed: Random seed for fault injection.
         """
-        self._register_map = register_map
+        self._device = register_map
         self._clock_hz = clock_hz
         self._latency_ms = latency_ms
         self._rng = random.Random(seed)
@@ -108,7 +107,7 @@ class SPIBus:
             self._apply_latency()
 
             if command == SPI_CMD_READ:
-                value = self._register_map.read(register_address)
+                value = self._device.read_register(register_address)
                 if self._rng.random() < self._corruption_probability:
                     value = self._rng.randint(0, 0xFF)
                     log.success = False
@@ -138,7 +137,7 @@ class SPIBus:
                     clock_hz=self._clock_hz,
                 )
             else:
-                self._register_map.write(register_address, data)
+                self._device.write_register(register_address, data)
                 log.success = True
                 duration = (time.monotonic() - start) * 1000
                 logger.debug("SPI write reg=0x%02X ← 0x%02X", register_address, data)

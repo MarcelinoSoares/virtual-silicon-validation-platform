@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 import random
 
+from virtual_silicon.exceptions import InstrumentMeasurementError
+
 logger = logging.getLogger(__name__)
 
-
-class InstrumentMeasurementError(Exception):
-    """Raised when an instrument measurement fails."""
+__all__ = ["InstrumentMeasurementError", "PowerSupply"]
 
 
 class PowerSupply:

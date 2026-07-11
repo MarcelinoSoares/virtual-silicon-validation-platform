@@ -10,11 +10,11 @@ from typing import Any
 
 import yaml
 
+from virtual_silicon.exceptions import FaultInjectionError
+
 logger = logging.getLogger(__name__)
 
-
-class FaultInjectionError(Exception):
-    """Raised when a fault injection operation fails."""
+__all__ = ["FaultConfig", "FaultInjectionError", "FaultType"]
 
 
 class FaultType(StrEnum):

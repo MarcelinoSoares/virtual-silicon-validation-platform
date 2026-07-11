@@ -8,12 +8,11 @@ from collections.abc import Callable
 
 from virtual_silicon.device.memory import SRAM, MemoryTestResult
 from virtual_silicon.device.register_map import RegisterMap
+from virtual_silicon.exceptions import DeviceNotPoweredError
 
 logger = logging.getLogger(__name__)
 
-
-class DeviceNotPoweredError(Exception):
-    """Raised when an operation is attempted on an unpowered device."""
+__all__ = ["DeviceNotPoweredError", "VirtualChip"]
 
 
 class VirtualChip:

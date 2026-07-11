@@ -70,7 +70,7 @@ class TestEndToEndValidation:
             )
 
         # 7. Write register via I2C
-        i2c = I2CBus(chip.register_map, device_address=0x48, seed=seed)
+        i2c = I2CBus(chip, device_address=0x48, seed=seed)
         txn_write = i2c.write_register(0x48, 0x08, 0x40)
         assert txn_write.success
         temp_db.save_protocol_transaction(
@@ -79,7 +79,7 @@ class TestEndToEndValidation:
         temp_db.save_test_result(eid, "i2c_register_write", "protocol", "PASS")
 
         # 8. Read register via SPI
-        spi = SPIBus(chip.register_map, seed=seed)
+        spi = SPIBus(chip, seed=seed)
         txn_read = spi.read_register(0x08)
         assert txn_read.success
         assert txn_read.rx_data == [0x40], "SPI read did not match I2C write"
@@ -91,12 +91,12 @@ class TestEndToEndValidation:
         # 9. Collect instrument measurements
         ps = PowerSupply(voltage=3.3, current_limit=1.0, seed=seed)
         ps.power_on()
-        _ = Multimeter(seed=seed)
+        multimeter = Multimeter(seed=seed)
         ts = TemperatureSensor(seed=seed)
         sp = Spectrometer(seed=seed)
 
-        voltage = ps.measure_voltage()
-        current = ps.measure_current()
+        voltage = multimeter.measure_voltage(ps.measure_voltage())
+        current = multimeter.measure_current(ps.measure_current())
         temperature = ts.read()
         brightness = sp.measure_brightness()
 
@@ -182,6 +182,6 @@ class TestEndToEndValidation:
         final_device_id = chip.read_register(0x00)
         assert final_device_id == 0xA5, "Device ID mismatch after reset"
         assert chip.get_firmware_version() == "1.0"
-        assert chip.cycle_count == 0 or chip.cycle_count >= 0
+        assert chip.cycle_count == 2  # read_register(0x02) + read_register(0x00) after power_on
 
         print(f"\nE2E Validation Complete: {summary.passed} passed, {summary.failed} failed")

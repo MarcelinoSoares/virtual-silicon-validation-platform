@@ -8,7 +8,11 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
+from virtual_silicon.exceptions import MemoryValidationError
+
 logger = logging.getLogger(__name__)
+
+__all__ = ["MemoryTestResult", "MemoryTestStatus", "MemoryValidationError", "SRAM"]
 
 
 class MemoryTestStatus(Enum):
@@ -17,10 +21,6 @@ class MemoryTestStatus(Enum):
     PASS = "PASS"
     FAIL = "FAIL"
     ERROR = "ERROR"
-
-
-class MemoryValidationError(Exception):
-    """Raised when a memory validation operation fails."""
 
 
 @dataclass
@@ -124,10 +124,18 @@ class SRAM:
             address: Target memory address.
             bit: Bit position (0-7).
             value: Stuck value (0 or 1).
+
+        Raises:
+            MemoryValidationError: If address, bit, or value is out of range.
         """
+        self._validate_address(address)
+        if not 0 <= bit <= 7:
+            raise MemoryValidationError(f"Bit position must be 0–7, got {bit}.")
+        if value not in (0, 1):
+            raise MemoryValidationError(f"Stuck-bit value must be 0 or 1, got {value}.")
         if address not in self._stuck_bits:
             self._stuck_bits[address] = {}
-        self._stuck_bits[address][bit] = value & 1
+        self._stuck_bits[address][bit] = value
         logger.warning("Stuck bit injected at address %d, bit %d = %d.", address, bit, value)
 
     def clear_faults(self) -> None:

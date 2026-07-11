@@ -4,10 +4,24 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Protocol
+
+from virtual_silicon.exceptions import ProtocolTimeoutError
+
+__all__ = ["ProtocolTimeoutError", "RegisterDevice", "TransactionLog"]
 
 
-class ProtocolTimeoutError(Exception):
-    """Raised when a protocol transaction times out."""
+class RegisterDevice(Protocol):
+    """Structural interface satisfied by VirtualChip and RegisterMap.
+
+    Any object exposing read_register/write_register can be used as the
+    backing device for I2CBus and SPIBus, enabling power-state checks,
+    cycle counting, and fault callbacks when a VirtualChip is passed.
+    """
+
+    def read_register(self, address: int) -> int: ...
+
+    def write_register(self, address: int, value: int) -> None: ...
 
 
 @dataclass

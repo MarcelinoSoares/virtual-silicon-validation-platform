@@ -79,20 +79,20 @@ class TestI2CBus:
         assert "timeout" in txn.error.lower()
 
     def test_read_multi_partial_response(self, register_map: RegisterMap, seed: int) -> None:
-        """read_multi() with partial=1.0 stops after first register (line 192)."""
+        """read_multi() with partial=1.0 is incomplete → success=False, transferred_count < requested."""
         bus = I2CBus(register_map=register_map, device_address=0x48, seed=seed)
         bus.set_fault_probabilities(partial=1.0)
         txn = bus.read_multi(0x48, 0x00, 5)
-        assert txn.success
-        # Partial response: should have received fewer bytes than requested
-        assert len(txn.data) <= 5
+        assert not txn.success
+        assert txn.transferred_count < txn.requested_count
 
     def test_read_multi_invalid_register_stops(self, i2c_bus: I2CBus) -> None:
-        """read_multi() stops gracefully on InvalidRegisterAddressError (line 194)."""
+        """read_multi() stops at unmapped address → success=False, some bytes transferred."""
         # Start at a valid register but request enough to overflow into unmapped space
         txn = i2c_bus.read_multi(0x48, 0x0C, 10)
-        assert txn.success  # Partial success: stops at first unmapped address
-        assert len(txn.data) >= 1
+        assert not txn.success  # incomplete: fewer bytes than requested
+        assert txn.transferred_count >= 1
+        assert txn.requested_count == 10
 
     def test_latency_applied(self, register_map: RegisterMap) -> None:
         """_apply_latency() calls time.sleep when latency_ms > 0 (line 229)."""
