@@ -9,6 +9,7 @@ from virtual_silicon.device.register import (
     AccessType,
     InvalidRegisterAddressError,
     Register,
+    RegisterBehavior,
     RegisterSize,
 )
 
@@ -94,7 +95,8 @@ class RegisterMap:
                 size=RegisterSize.BITS_8,
                 access=AccessType.READ_WRITE,
                 reset_value=0x00,
-                description="Error flag register. Write 0 to clear.",
+                behavior=RegisterBehavior.WRITE_ONE_TO_CLEAR,
+                description="Error flag register. Write 1 to clear each bit (W1C).",
             ),
             Register(
                 name="FIRMWARE_VERSION",
@@ -110,7 +112,8 @@ class RegisterMap:
                 size=RegisterSize.BITS_8,
                 access=AccessType.READ_WRITE,
                 reset_value=0x00,
-                description="Interrupt status and enable flags.",
+                behavior=RegisterBehavior.WRITE_ONE_TO_CLEAR,
+                description="Interrupt status flags. Write 1 to clear each bit (W1C).",
             ),
         ]
         for reg in registers:
