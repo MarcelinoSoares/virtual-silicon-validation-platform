@@ -36,7 +36,7 @@ class PowerState(StrEnum):
 
 # POWER_CONTROL register bit assignments (address 0x02)
 _PWR_BIT_ENABLE = 0x01  # bit 0: 1 = chip enabled, 0 = software power-off
-_PWR_BIT_RESET = 0x02   # bit 1: writing 1 triggers warm_reset()
+_PWR_BIT_RESET = 0x02  # bit 1: writing 1 triggers warm_reset()
 
 
 class VirtualChip:

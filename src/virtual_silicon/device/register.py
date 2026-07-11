@@ -160,7 +160,10 @@ class Register:
             self._write_count += 1
             logger.debug(
                 "W1C write register '%s' [0x%04X] mask=0x%X → 0x%X",
-                self.name, self.address, value, new_value,
+                self.name,
+                self.address,
+                value,
+                new_value,
             )
         else:
             masked_value = value & self.bit_mask
