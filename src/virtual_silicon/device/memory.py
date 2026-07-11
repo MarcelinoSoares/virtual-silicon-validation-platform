@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal
 
 from virtual_silicon.exceptions import MemoryValidationError
 
@@ -49,12 +51,21 @@ class SRAM:
     Random read/write, March C-, boundary tests, and data retention simulation.
     """
 
-    def __init__(self, size: int = 256, seed: int | None = None) -> None:
+    def __init__(
+        self,
+        size: int = 256,
+        seed: int | None = None,
+        power_on_pattern: Literal["zeroed", "random", "undefined"] = "zeroed",
+        on_access: Callable[[], None] | None = None,
+    ) -> None:
         """Initialize virtual SRAM.
 
         Args:
             size: Memory size in bytes (default 256).
             seed: Random seed for deterministic test execution.
+            power_on_pattern: Initial SRAM state on power-on. "zeroed" fills with 0x00,
+                "random" fills with pseudorandom bytes (seeded), "undefined" fills with 0xBE.
+            on_access: Optional callback invoked on every read or write, used for cycle counting.
         """
         if size <= 0:
             raise MemoryValidationError(f"SRAM size must be positive, got {size}.")
@@ -63,6 +74,8 @@ class SRAM:
         self._seed = seed
         self._rng = random.Random(seed)
         self._stuck_bits: dict[int, dict[int, int]] = {}
+        self._power_on_pattern = power_on_pattern
+        self._on_access = on_access
         logger.info("Initialized SRAM with %d bytes.", size)
 
     @property
@@ -83,6 +96,8 @@ class SRAM:
             MemoryValidationError: If address is out of range.
         """
         self._validate_address(address)
+        if self._on_access:
+            self._on_access()
         value = self._memory[address]
         value = self._apply_stuck_bits(address, value)
         return value
@@ -100,6 +115,8 @@ class SRAM:
         self._validate_address(address)
         if value < 0 or value > 0xFF:
             raise MemoryValidationError(f"Value 0x{value:X} out of byte range.")
+        if self._on_access:
+            self._on_access()
         self._memory[address] = value
 
     def fill(self, pattern: int) -> None:
@@ -116,6 +133,21 @@ class SRAM:
     def clear(self) -> None:
         """Clear all memory to zero."""
         self._memory = [0x00] * self._size
+
+    def power_on_init(self) -> None:
+        """Initialize SRAM according to the configured power_on_pattern.
+
+        "zeroed" fills with 0x00 (deterministic, simplifies test setup).
+        "random" fills with pseudorandom bytes using the configured seed.
+        "undefined" fills with 0xBE, approximating real SRAM whose state is unpredictable.
+        """
+        if self._power_on_pattern == "random":
+            rng = random.Random(self._seed)
+            self._memory = [rng.randint(0, 0xFF) for _ in range(self._size)]
+        elif self._power_on_pattern == "undefined":
+            self._memory = [0xBE] * self._size
+        else:
+            self._memory = [0x00] * self._size
 
     def inject_stuck_bit(self, address: int, bit: int, value: int) -> None:
         """Inject a stuck bit fault at the specified address.

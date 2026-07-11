@@ -7,6 +7,7 @@ import random
 import time
 from dataclasses import dataclass
 
+from virtual_silicon.device.byte_order import ByteOrder, serialize_register
 from virtual_silicon.device.register import InvalidRegisterAddressError, RegisterAccessError
 from virtual_silicon.protocols.base import ProtocolTimeoutError, RegisterDevice, TransactionLog
 
@@ -43,6 +44,7 @@ class SPIBus:
         clock_hz: int = 1_000_000,
         latency_ms: float = 0.0,
         seed: int | None = None,
+        byte_order: ByteOrder = ByteOrder.BIG,
     ) -> None:
         """Initialize the SPI bus.
 
@@ -51,11 +53,13 @@ class SPIBus:
             clock_hz: Simulated SPI clock frequency in Hz.
             latency_ms: Simulated transaction latency in milliseconds.
             seed: Random seed for fault injection.
+            byte_order: Byte order for serializing 16-bit register values (default: BIG).
         """
         self._device = register_map
         self._clock_hz = clock_hz
         self._latency_ms = latency_ms
         self._rng = random.Random(seed)
+        self._byte_order = byte_order
         self._transactions: list[TransactionLog] = []
         self._timeout_probability: float = 0.0
         self._corruption_probability: float = 0.0
@@ -109,7 +113,7 @@ class SPIBus:
             if command == SPI_CMD_READ:
                 value = self._device.read_register(register_address)
                 if self._rng.random() < self._corruption_probability:
-                    value = self._rng.randint(0, 0xFF)
+                    corrupted = self._rng.randint(0, 0xFF)
                     log.success = False
                     log.error = "Corrupted SPI response (simulated)."
                     duration = (time.monotonic() - start) * 1000
@@ -117,21 +121,22 @@ class SPIBus:
                         command,
                         register_address,
                         [0x00],
-                        [value],
+                        [corrupted],
                         False,
                         log.error,
                         duration,
                         self._clock_hz,
                     )
-                log.data = [value]
+                rx = serialize_register(value, self._byte_order)
+                log.data = rx
                 log.success = True
                 duration = (time.monotonic() - start) * 1000
-                logger.debug("SPI read reg=0x%02X → 0x%02X", register_address, value)
+                logger.debug("SPI read reg=0x%02X → 0x%04X", register_address, value)
                 return SPITransaction(
                     command,
                     register_address,
                     [0x00],
-                    [value],
+                    rx,
                     True,
                     duration_ms=duration,
                     clock_hz=self._clock_hz,

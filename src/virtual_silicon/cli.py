@@ -241,7 +241,10 @@ def reset_chip() -> None:
     """Reset the virtual chip to its power-on state."""
     _setup_logging()
     chip = _get_chip()
-    chip.reset()
+    if chip.powered:
+        chip.warm_reset()
+    else:
+        chip.power_on()
     console.print("[green]✓ Chip reset. All registers restored to defaults.[/green]")
 
 

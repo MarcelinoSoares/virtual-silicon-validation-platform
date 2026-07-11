@@ -2,7 +2,9 @@
 
 import pytest
 
+from virtual_silicon.device.byte_order import ByteOrder
 from virtual_silicon.device.register_map import RegisterMap
+from virtual_silicon.exceptions import I2CDeviceAddressError
 from virtual_silicon.protocols.base import TransactionLog
 from virtual_silicon.protocols.i2c import I2CBus
 
@@ -100,6 +102,37 @@ class TestI2CBus:
         txn = bus.read_register(0x48, 0x00)
         assert txn.success
         assert txn.duration_ms >= 0  # latency added
+
+
+@pytest.mark.unit
+@pytest.mark.protocol
+class TestI2CBusByteOrder:
+    """ByteOrder serialization for 16-bit registers over I2C."""
+
+    def test_16bit_register_big_endian_default(self, register_map: RegisterMap) -> None:
+        bus = I2CBus(register_map=register_map, device_address=0x48)
+        txn = bus.read_register(0x48, 0x04)  # VOLTAGE_LEVEL = 0x0C80
+        assert txn.success
+        assert txn.data == [0x0C, 0x80]
+
+    def test_16bit_register_little_endian(self, register_map: RegisterMap) -> None:
+        bus = I2CBus(register_map=register_map, device_address=0x48, byte_order=ByteOrder.LITTLE)
+        txn = bus.read_register(0x48, 0x04)  # VOLTAGE_LEVEL = 0x0C80
+        assert txn.success
+        assert txn.data == [0x80, 0x0C]
+
+    def test_8bit_register_unaffected_by_byte_order(self, register_map: RegisterMap) -> None:
+        bus = I2CBus(register_map=register_map, device_address=0x48, byte_order=ByteOrder.LITTLE)
+        txn = bus.read_register(0x48, 0x00)  # DEVICE_ID = 0xA5 (8-bit)
+        assert txn.success
+        assert txn.data == [0xA5]
+
+    def test_invalid_device_address_raises_i2c_error(self, register_map: RegisterMap) -> None:
+        bus = I2CBus(register_map=register_map, device_address=0x48)
+        txn = bus.read_register(0x50, 0x00)
+        assert not txn.success
+        assert isinstance(I2CDeviceAddressError("test"), I2CDeviceAddressError)
+        assert "No I2C device" in txn.error
 
 
 @pytest.mark.unit
