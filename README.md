@@ -52,14 +52,14 @@ Dependencies always flow inward. The `device` layer has no dependencies on proto
 
 ## Quick Start
 
-**Requirements:** Python 3.12+, Homebrew (macOS)
+**Requirements:** Python 3.12+
 
 ```bash
-git clone https://github.com/your-org/virtual-silicon-validation-platform.git
+git clone https://github.com/marcelinodeoliveira91/virtual-silicon-validation-platform.git
 cd virtual-silicon-validation-platform
 
-/opt/homebrew/bin/python3 -m venv .venv
-source .venv/bin/activate
+python3.12 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 

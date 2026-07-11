@@ -5,7 +5,17 @@ from __future__ import annotations
 import logging
 from enum import Enum
 
+from virtual_silicon.exceptions import InvalidRegisterAddressError, RegisterAccessError
+
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "AccessType",
+    "InvalidRegisterAddressError",
+    "Register",
+    "RegisterAccessError",
+    "RegisterSize",
+]
 
 
 class AccessType(Enum):
@@ -22,14 +32,6 @@ class RegisterSize(Enum):
     BITS_8 = 8
     BITS_16 = 16
     BITS_32 = 32
-
-
-class InvalidRegisterAddressError(Exception):
-    """Raised when an invalid register address is accessed."""
-
-
-class RegisterAccessError(Exception):
-    """Raised when a register access violation occurs."""
 
 
 class Register:

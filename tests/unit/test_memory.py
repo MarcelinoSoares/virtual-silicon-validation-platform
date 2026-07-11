@@ -65,6 +65,22 @@ class TestSRAMBasics:
         with pytest.raises(MemoryValidationError):
             SRAM(size=0)
 
+    def test_inject_stuck_bit_invalid_address_raises(self, clean_sram: SRAM) -> None:
+        with pytest.raises(MemoryValidationError, match="out of range"):
+            clean_sram.inject_stuck_bit(999, 0, 1)
+
+    def test_inject_stuck_bit_negative_bit_raises(self, clean_sram: SRAM) -> None:
+        with pytest.raises(MemoryValidationError, match="Bit position"):
+            clean_sram.inject_stuck_bit(0, -1, 0)
+
+    def test_inject_stuck_bit_bit_too_large_raises(self, clean_sram: SRAM) -> None:
+        with pytest.raises(MemoryValidationError, match="Bit position"):
+            clean_sram.inject_stuck_bit(0, 8, 0)
+
+    def test_inject_stuck_bit_invalid_value_raises(self, clean_sram: SRAM) -> None:
+        with pytest.raises(MemoryValidationError, match="Stuck-bit value"):
+            clean_sram.inject_stuck_bit(0, 3, 2)
+
 
 @pytest.mark.unit
 @pytest.mark.memory

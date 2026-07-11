@@ -5,11 +5,10 @@ from __future__ import annotations
 import logging
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from virtual_silicon.device.register import InvalidRegisterAddressError, RegisterAccessError
-from virtual_silicon.device.register_map import RegisterMap
-from virtual_silicon.protocols.base import ProtocolTimeoutError, TransactionLog
+from virtual_silicon.protocols.base import ProtocolTimeoutError, RegisterDevice, TransactionLog
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,11 @@ class I2CTransaction:
     success: bool
     error: str = ""
     duration_ms: float = 0.0
+    requested_count: int = 0
+    transferred_count: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.transferred_count = len(self.data)
 
 
 class I2CBus:
@@ -38,7 +42,7 @@ class I2CBus:
 
     def __init__(
         self,
-        register_map: RegisterMap,
+        register_map: RegisterDevice,
         device_address: int = DEFAULT_DEVICE_ADDRESS,
         latency_ms: float = 0.0,
         seed: int | None = None,
@@ -46,12 +50,12 @@ class I2CBus:
         """Initialize the I2C bus.
 
         Args:
-            register_map: The chip's register map.
+            register_map: Device backing the register space (VirtualChip or RegisterMap).
             device_address: 7-bit I2C device address.
             latency_ms: Simulated transaction latency in milliseconds.
             seed: Random seed for fault probability.
         """
-        self._register_map = register_map
+        self._device = register_map
         self._device_address = device_address
         self._latency_ms = latency_ms
         self._rng = random.Random(seed)
@@ -109,7 +113,7 @@ class I2CBus:
             self._validate_address(device_address)
             self._simulate_faults("read")
             self._apply_latency()
-            value = self._register_map.read(register_address)
+            value = self._device.read_register(register_address)
             log.data = [value]
             log.success = True
             duration = (time.monotonic() - start) * 1000
@@ -155,7 +159,7 @@ class I2CBus:
             self._validate_address(device_address)
             self._simulate_faults("write")
             self._apply_latency()
-            self._register_map.write(register_address, value)
+            self._device.write_register(register_address, value)
             log.success = True
             duration = (time.monotonic() - start) * 1000
             logger.debug(
@@ -200,24 +204,39 @@ class I2CBus:
             data = []
             for offset in range(count):
                 try:
-                    val = self._register_map.read(start_register + offset)
+                    val = self._device.read_register(start_register + offset)
                     data.append(val)
                     if self._rng.random() < self._partial_probability:
                         break
                 except InvalidRegisterAddressError:
                     break
+            transferred = len(data)
+            success = transferred == count
             log.data = data
-            log.success = True
+            log.success = success
             duration = (time.monotonic() - start) * 1000
             return I2CTransaction(
-                device_address, start_register, data, "read_multi", True, duration_ms=duration
+                device_address,
+                start_register,
+                data,
+                "read_multi",
+                success,
+                duration_ms=duration,
+                requested_count=count,
             )
-        except ProtocolTimeoutError as exc:
+        except (ProtocolTimeoutError, RegisterAccessError) as exc:
             log.success = False
             log.error = str(exc)
             duration = (time.monotonic() - start) * 1000
             return I2CTransaction(
-                device_address, start_register, [], "read_multi", False, str(exc), duration
+                device_address,
+                start_register,
+                [],
+                "read_multi",
+                False,
+                str(exc),
+                duration,
+                requested_count=count,
             )
         finally:
             self._transactions.append(log)
