@@ -285,8 +285,7 @@ class TestFaultInjectorExtras:
         assert "REG_CORRUPT" in applied
 
     def test_apply_fault_voltage_drop(self, virtual_chip: VirtualChip) -> None:
-        """VOLTAGE_DROP executes lines 191-192 then raises (VOLTAGE_LEVEL is read-only);
-        the exception is caught by apply_to_chip (lines 75-76)."""
+        """VOLTAGE_DROP directly sets VOLTAGE_LEVEL._value, bypassing access control."""
         cfg = FaultConfig(
             fault_id="VOLT_DROP",
             fault_type=FaultType.VOLTAGE_DROP,
@@ -296,11 +295,27 @@ class TestFaultInjectorExtras:
         )
         injector = FaultInjector([cfg], seed=42)
         applied = injector.apply_to_chip(virtual_chip, cycle=0)
-        # VOLTAGE_LEVEL (0x04) is read-only → write raises → exception caught → not applied
-        assert "VOLT_DROP" not in applied
+        assert "VOLT_DROP" in applied
+        # 2.5 V × 1000 = 2500 mV = 0x09C4
+        assert virtual_chip.register_map.read(0x04) == 2500
+
+    def test_apply_fault_overcurrent(self, virtual_chip: VirtualChip) -> None:
+        """OVERCURRENT triggers fault_shutdown(), transitioning chip to FAULT state."""
+        from virtual_silicon.device.virtual_chip import PowerState
+
+        cfg = FaultConfig(
+            fault_id="OVERCURRENT",
+            fault_type=FaultType.OVERCURRENT,
+            enabled=True,
+            probability=1.0,
+        )
+        injector = FaultInjector([cfg], seed=42)
+        applied = injector.apply_to_chip(virtual_chip, cycle=0)
+        assert "OVERCURRENT" in applied
+        assert virtual_chip.power_state == PowerState.FAULT
 
     def test_apply_fault_else_branch_no_chip_action(self, virtual_chip: VirtualChip) -> None:
-        """Fault type with no chip-level action hits the else branch (line 199)."""
+        """Fault type with no chip-level action hits the else/debug branch."""
         cfg = FaultConfig(
             fault_id="I2C_NO_ACTION",
             fault_type=FaultType.I2C_TIMEOUT,  # no chip-level action

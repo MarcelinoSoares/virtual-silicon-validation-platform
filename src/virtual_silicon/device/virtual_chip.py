@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
+from enum import StrEnum
 from typing import Literal
 
 from virtual_silicon.device.memory import SRAM, MemoryTestResult
@@ -13,7 +14,29 @@ from virtual_silicon.exceptions import DeviceNotPoweredError
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["DeviceNotPoweredError", "VirtualChip"]
+__all__ = ["DeviceNotPoweredError", "PowerState", "VirtualChip"]
+
+
+class PowerState(StrEnum):
+    """Chip power state machine states.
+
+    Transitions:
+        power_on():  OFF → POWER_RAMP → BOOTING → READY
+        power_off(): any → OFF
+        warm_reset(): READY → BOOTING → READY
+        fault_shutdown(): any → FAULT
+    """
+
+    OFF = "off"
+    POWER_RAMP = "power_ramp"
+    BOOTING = "booting"
+    READY = "ready"
+    FAULT = "fault"
+
+
+# POWER_CONTROL register bit assignments (address 0x02)
+_PWR_BIT_ENABLE = 0x01  # bit 0: 1 = chip enabled, 0 = software power-off
+_PWR_BIT_RESET = 0x02  # bit 1: writing 1 triggers warm_reset()
 
 
 class VirtualChip:
@@ -40,7 +63,7 @@ class VirtualChip:
             seed: Random seed for deterministic SRAM tests.
             sram_power_on_pattern: SRAM state after power-on ("zeroed", "random", "undefined").
         """
-        self._powered: bool = False
+        self._power_state: PowerState = PowerState.OFF
         self._cycle_count: int = 0
         self._power_on_time: float | None = None
         self._fault_callbacks: list[Callable[[str, int, int], None]] = []
@@ -55,8 +78,13 @@ class VirtualChip:
 
     @property
     def powered(self) -> bool:
-        """Return True if the chip is powered on."""
-        return self._powered
+        """Return True if the chip is in READY state (backward-compatible)."""
+        return self._power_state == PowerState.READY
+
+    @property
+    def power_state(self) -> PowerState:
+        """Current power state of the chip."""
+        return self._power_state
 
     @property
     def cycle_count(self) -> int:
@@ -75,23 +103,30 @@ class VirtualChip:
 
     def power_on(self) -> None:
         """Power on the chip and initialize registers and SRAM to power-on state."""
-        if self._powered:
+        if self._power_state == PowerState.READY:
             logger.warning("Chip is already powered on.")
             return
-        self._powered = True
+        self._power_state = PowerState.POWER_RAMP
+        self._power_state = PowerState.BOOTING
         self._power_on_time = time.monotonic()
         self._register_map.reset_all()
         self._sram.power_on_init()
         self._cycle_count = 0
+        self._power_state = PowerState.READY
         logger.info("Chip powered ON. Registers reset, SRAM initialized.")
 
     def power_off(self) -> None:
         """Power off the chip."""
-        if not self._powered:
+        if self._power_state == PowerState.OFF:
             logger.warning("Chip is already powered off.")
             return
-        self._powered = False
+        self._power_state = PowerState.OFF
         logger.info("Chip powered OFF after %d cycles.", self._cycle_count)
+
+    def fault_shutdown(self) -> None:
+        """Transition to FAULT state (e.g., triggered by overcurrent protection)."""
+        self._power_state = PowerState.FAULT
+        logger.warning("Chip fault shutdown after %d cycles.", self._cycle_count)
 
     def warm_reset(self) -> None:
         """Warm reset: restore register defaults and clear SRAM while staying powered.
@@ -100,9 +135,11 @@ class VirtualChip:
             DeviceNotPoweredError: If chip is not powered.
         """
         self._require_power()
+        self._power_state = PowerState.BOOTING
         self._register_map.reset_all()
         self._sram.clear()
         self._cycle_count = 0
+        self._power_state = PowerState.READY
         logger.info("Chip warm reset.")
 
     def read_register(self, address: int) -> int:
@@ -140,6 +177,12 @@ class VirtualChip:
         self._cycle_count += 1
         self._trigger_fault_callbacks("register_write", address)
         self._register_map.write(address, value)
+        if address == 0x02:  # POWER_CONTROL side effects
+            masked = value & 0x0F  # POWER_CONTROL bit_mask
+            if masked & _PWR_BIT_RESET:
+                self.warm_reset()
+            elif not (masked & _PWR_BIT_ENABLE):
+                self.power_off()
 
     def read_memory(self, address: int) -> int:
         """Read a byte from SRAM.
@@ -208,16 +251,18 @@ class VirtualChip:
 
     def get_health_status(self) -> dict[str, object]:
         """Return a health status dictionary for monitoring."""
+        is_ready = self._power_state == PowerState.READY
         return {
-            "powered": self._powered,
+            "powered": is_ready,
+            "power_state": self._power_state.value,
             "cycle_count": self._cycle_count,
             "chip_version": self.CHIP_VERSION,
             "firmware_version": (
-                f"{self.FIRMWARE_MAJOR}.{self.FIRMWARE_MINOR}" if self._powered else "N/A"
+                f"{self.FIRMWARE_MAJOR}.{self.FIRMWARE_MINOR}" if is_ready else "N/A"
             ),
             "uptime_seconds": (
                 round(time.monotonic() - self._power_on_time, 2)
-                if self._power_on_time and self._powered
+                if self._power_on_time and is_ready
                 else 0.0
             ),
             "sram_size": self._sram.size,
@@ -235,8 +280,10 @@ class VirtualChip:
         self._cycle_count += 1
 
     def _require_power(self) -> None:
-        if not self._powered:
-            raise DeviceNotPoweredError("Operation requires chip to be powered on.")
+        if self._power_state != PowerState.READY:
+            raise DeviceNotPoweredError(
+                f"Operation requires chip to be powered on (state: {self._power_state.value})."
+            )
 
     def _trigger_fault_callbacks(self, event: str, address: int) -> None:
         for cb in self._fault_callbacks:

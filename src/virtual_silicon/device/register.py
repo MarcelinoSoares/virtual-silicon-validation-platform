@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from enum import Enum
+from enum import Enum, StrEnum
 
 from virtual_silicon.exceptions import InvalidRegisterAddressError, RegisterAccessError
 
@@ -14,6 +14,7 @@ __all__ = [
     "InvalidRegisterAddressError",
     "Register",
     "RegisterAccessError",
+    "RegisterBehavior",
     "RegisterSize",
 ]
 
@@ -34,6 +35,21 @@ class RegisterSize(Enum):
     BITS_32 = 32
 
 
+class RegisterBehavior(StrEnum):
+    """Register access side-effect behavior.
+
+    NORMAL: standard read/write with no side effects.
+    WRITE_ONE_TO_CLEAR: writing a 1-bit clears that bit; 0-bits are unchanged.
+        Typical for error/interrupt status registers.
+    READ_TO_CLEAR: reading the register clears it back to reset_value.
+        Typical for latched interrupt registers.
+    """
+
+    NORMAL = "normal"
+    WRITE_ONE_TO_CLEAR = "w1c"
+    READ_TO_CLEAR = "r2c"
+
+
 class Register:
     """Virtual silicon register with configurable access, size, and bit masking.
 
@@ -52,6 +68,7 @@ class Register:
         description: str = "",
         min_value: int | None = None,
         max_value: int | None = None,
+        behavior: RegisterBehavior = RegisterBehavior.NORMAL,
     ) -> None:
         """Initialize a virtual register.
 
@@ -65,6 +82,7 @@ class Register:
             description: Human-readable description.
             min_value: Minimum allowed write value.
             max_value: Maximum allowed write value.
+            behavior: Side-effect behavior on access (NORMAL, W1C, R2C).
         """
         self.name = name
         self.address = address
@@ -74,6 +92,7 @@ class Register:
         self.description = description
         self.min_value = min_value
         self.max_value = max_value
+        self.behavior = behavior
         self._max_bits = (1 << size.value) - 1
         self.bit_mask = bit_mask if bit_mask is not None else self._max_bits
         self._value: int = reset_value & self.bit_mask
@@ -99,8 +118,15 @@ class Register:
                 f"Register '{self.name}' at 0x{self.address:04X} is write-only."
             )
         self._read_count += 1
-        logger.debug("Read register '%s' [0x%04X] = 0x%X", self.name, self.address, self._value)
-        return self._value
+        val = self._value
+        if self.behavior == RegisterBehavior.READ_TO_CLEAR:
+            self._value = self.reset_value & self.bit_mask
+            logger.debug(
+                "R2C read register '%s' [0x%04X] = 0x%X (cleared)", self.name, self.address, val
+            )
+        else:
+            logger.debug("Read register '%s' [0x%04X] = 0x%X", self.name, self.address, val)
+        return val
 
     def write(self, value: int) -> None:
         """Write a value to the register.
@@ -127,10 +153,25 @@ class Register:
             raise RegisterAccessError(
                 f"Value {value} above maximum {self.max_value} for register '{self.name}'."
             )
-        masked_value = value & self.bit_mask
-        self._value = masked_value
-        self._write_count += 1
-        logger.debug("Wrote register '%s' [0x%04X] = 0x%X", self.name, self.address, masked_value)
+        if self.behavior == RegisterBehavior.WRITE_ONE_TO_CLEAR:
+            # W1C: bits written as 1 are cleared; bits written as 0 are unchanged
+            new_value = (self._value & ~value) & self.bit_mask
+            self._value = new_value
+            self._write_count += 1
+            logger.debug(
+                "W1C write register '%s' [0x%04X] mask=0x%X → 0x%X",
+                self.name,
+                self.address,
+                value,
+                new_value,
+            )
+        else:
+            masked_value = value & self.bit_mask
+            self._value = masked_value
+            self._write_count += 1
+            logger.debug(
+                "Wrote register '%s' [0x%04X] = 0x%X", self.name, self.address, masked_value
+            )
 
     def reset(self) -> None:
         """Reset register to its default reset value."""

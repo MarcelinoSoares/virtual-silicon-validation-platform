@@ -196,7 +196,13 @@ class FaultInjector:
 
         elif cfg.fault_type == FaultType.VOLTAGE_DROP:
             voltage = cfg.voltage if cfg.voltage is not None else 0.5
-            chip.register_map.write(0x04, max(0, int(voltage * 1000)) & 0xFFFF)
+            # VOLTAGE_LEVEL (0x04) is READ_ONLY — bypass access control to simulate
+            # the hardware dropping voltage (analogous to OVERHEAT injecting temperature)
+            chip.register_map._registers[0x04]._value = max(0, int(voltage * 1000)) & 0xFFFF
+
+        elif cfg.fault_type == FaultType.OVERCURRENT:
+            # Simulate overcurrent protection: latch the chip into FAULT state
+            chip.fault_shutdown()
 
         elif cfg.fault_type == FaultType.OVERHEAT:
             temp = cfg.temperature if cfg.temperature is not None else 90
