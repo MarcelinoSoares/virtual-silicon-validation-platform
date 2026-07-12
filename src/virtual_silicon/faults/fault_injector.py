@@ -342,7 +342,9 @@ class FaultInjector:
         chip.clear_fault_callbacks()
         chip.sram.clear_faults()
         chip.register_map.reset_all()
-        logger.info("Chip fault effects cleared: callbacks removed, stuck bits cleared, registers reset.")
+        logger.info(
+            "Chip fault effects cleared: callbacks removed, stuck bits cleared, registers reset."
+        )
 
     def reset_i2c_faults(self, i2c: _BusWithFaultProbabilities) -> None:
         """Reset I2C bus fault probabilities to zero.
