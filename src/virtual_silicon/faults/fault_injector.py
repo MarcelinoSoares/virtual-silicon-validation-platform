@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import random
+from dataclasses import dataclass
 from typing import Protocol
 
 from virtual_silicon.faults.fault_models import (
@@ -14,6 +15,15 @@ from virtual_silicon.faults.fault_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FaultApplicationResult:
+    """Outcome of a single fault application attempt."""
+
+    fault_id: str
+    applied: bool
+    error: str | None = None
 
 
 class _BusWithFaultProbabilities(Protocol):
@@ -50,17 +60,23 @@ class FaultInjector:
         """Currently active faults by fault_id."""
         return dict(self._active_faults)
 
-    def apply_to_chip(self, chip: object, cycle: int = 0) -> list[str]:
+    def apply_to_chip(
+        self, chip: object, cycle: int = 0, strict: bool = False
+    ) -> list[FaultApplicationResult]:
         """Apply all applicable faults to the chip and its components.
 
         Args:
             chip: VirtualChip instance.
             cycle: Current execution cycle count.
+            strict: If True, re-raise fault application errors instead of logging warnings.
 
         Returns:
-            List of fault IDs that were applied this call.
+            List of FaultApplicationResult for each attempted fault.
+
+        Raises:
+            FaultInjectionError: If strict=True and a fault fails to apply.
         """
-        applied: list[str] = []
+        results: list[FaultApplicationResult] = []
         for model in self._models:
             cfg = model.config
             if not cfg.enabled:
@@ -75,13 +91,23 @@ class FaultInjector:
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
                 self._active_faults[cfg.fault_id] = cfg
-                applied.append(cfg.fault_id)
+                results.append(FaultApplicationResult(fault_id=cfg.fault_id, applied=True))
                 logger.info("Fault applied: %s (%s).", cfg.fault_id, cfg.fault_type.value)
             except Exception as exc:
+                error_msg = str(exc)
+                results.append(
+                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=error_msg)
+                )
+                if strict:
+                    raise FaultInjectionError(
+                        f"Failed to apply fault '{cfg.fault_id}': {error_msg}"
+                    ) from exc
                 logger.warning("Failed to apply fault %s: %s", cfg.fault_id, exc)
-        return applied
+        return results
 
-    def apply_to_i2c(self, i2c: _BusWithFaultProbabilities, cycle: int = 0) -> list[str]:
+    def apply_to_i2c(
+        self, i2c: _BusWithFaultProbabilities, cycle: int = 0
+    ) -> list[FaultApplicationResult]:
         """Apply I2C-specific faults (timeout, NACK).
 
         Args:
@@ -89,9 +115,9 @@ class FaultInjector:
             cycle: Current execution cycle.
 
         Returns:
-            List of applied fault IDs.
+            List of FaultApplicationResult for each attempted fault.
         """
-        applied: list[str] = []
+        results: list[FaultApplicationResult] = []
         for model in self._models:
             cfg = model.config
             if not cfg.enabled:
@@ -111,13 +137,18 @@ class FaultInjector:
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
                 self._active_faults[cfg.fault_id] = cfg
-                applied.append(cfg.fault_id)
+                results.append(FaultApplicationResult(fault_id=cfg.fault_id, applied=True))
                 logger.info("I2C fault applied: %s.", cfg.fault_id)
             except Exception as exc:
+                results.append(
+                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=str(exc))
+                )
                 logger.warning("Failed to apply I2C fault %s: %s", cfg.fault_id, exc)
-        return applied
+        return results
 
-    def apply_to_spi(self, spi: _BusWithFaultProbabilities, cycle: int = 0) -> list[str]:
+    def apply_to_spi(
+        self, spi: _BusWithFaultProbabilities, cycle: int = 0
+    ) -> list[FaultApplicationResult]:
         """Apply SPI-specific faults (timeout, corruption).
 
         Args:
@@ -125,9 +156,9 @@ class FaultInjector:
             cycle: Current execution cycle.
 
         Returns:
-            List of applied fault IDs.
+            List of FaultApplicationResult for each attempted fault.
         """
-        applied: list[str] = []
+        results: list[FaultApplicationResult] = []
         for model in self._models:
             cfg = model.config
             if not cfg.enabled:
@@ -147,18 +178,58 @@ class FaultInjector:
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
                 self._active_faults[cfg.fault_id] = cfg
-                applied.append(cfg.fault_id)
+                results.append(FaultApplicationResult(fault_id=cfg.fault_id, applied=True))
                 logger.info("SPI fault applied: %s.", cfg.fault_id)
             except Exception as exc:
+                results.append(
+                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=str(exc))
+                )
                 logger.warning("Failed to apply SPI fault %s: %s", cfg.fault_id, exc)
-        return applied
+        return results
 
-    def clear_all(self) -> None:
-        """Deactivate all faults and clear active fault registry."""
+    def clear_fault_registry(self) -> None:
+        """Deactivate all faults and clear active fault registry.
+
+        This clears the administrative state only — it does not undo hardware effects
+        (stuck bits, register value changes, fault callbacks, protocol probabilities).
+        Use reset_chip_faults(), reset_i2c_faults(), or reset_spi_faults() to reverse effects.
+        """
         for model in self._models:
             model.active = False
         self._active_faults.clear()
-        logger.info("All faults cleared.")
+        logger.info("Fault registry cleared.")
+
+    def reset_chip_faults(self, chip: object) -> None:
+        """Remove fault callbacks and restore all registers to reset values.
+
+        Args:
+            chip: VirtualChip instance.
+        """
+        from virtual_silicon.device.virtual_chip import VirtualChip
+
+        if not isinstance(chip, VirtualChip):
+            raise FaultInjectionError(f"Expected VirtualChip, got {type(chip).__name__}.")
+        chip.clear_fault_callbacks()
+        chip.register_map.reset_all()
+        logger.info("Chip fault effects cleared: callbacks removed, registers reset.")
+
+    def reset_i2c_faults(self, i2c: _BusWithFaultProbabilities) -> None:
+        """Reset I2C bus fault probabilities to zero.
+
+        Args:
+            i2c: I2CBus instance.
+        """
+        i2c.set_fault_probabilities(timeout=0.0, nack=0.0)
+        logger.info("I2C fault probabilities reset.")
+
+    def reset_spi_faults(self, spi: _BusWithFaultProbabilities) -> None:
+        """Reset SPI bus fault probabilities to zero.
+
+        Args:
+            spi: SPIBus instance.
+        """
+        spi.set_fault_probabilities(timeout=0.0, corruption=0.0)
+        logger.info("SPI fault probabilities reset.")
 
     def _apply_fault(self, cfg: FaultConfig, chip: object) -> None:
         """Dispatch fault application based on fault type."""
@@ -190,23 +261,22 @@ class FaultInjector:
 
         elif cfg.fault_type == FaultType.REGISTER_VALUE_CORRUPTION:
             if cfg.address is not None:
-                reg = chip.register_map._get_register(cfg.address)
+                reg = chip.register_map.get_register(cfg.address)
                 if reg.access.value != "ro":
-                    reg._value = self._rng.randint(0, reg._max_bits)
+                    chip.register_map.inject_hardware_value(
+                        cfg.address, self._rng.randint(0, reg.max_value_mask)
+                    )
 
         elif cfg.fault_type == FaultType.VOLTAGE_DROP:
             voltage = cfg.voltage if cfg.voltage is not None else 0.5
-            # VOLTAGE_LEVEL (0x04) is READ_ONLY — bypass access control to simulate
-            # the hardware dropping voltage (analogous to OVERHEAT injecting temperature)
-            chip.register_map._registers[0x04]._value = max(0, int(voltage * 1000)) & 0xFFFF
+            chip.register_map.inject_hardware_value(0x04, max(0, int(voltage * 1000)) & 0xFFFF)
 
         elif cfg.fault_type == FaultType.OVERCURRENT:
-            # Simulate overcurrent protection: latch the chip into FAULT state
             chip.fault_shutdown()
 
         elif cfg.fault_type == FaultType.OVERHEAT:
             temp = cfg.temperature if cfg.temperature is not None else 90
-            chip.register_map._registers[0x03]._value = min(255, int(temp))
+            chip.register_map.inject_hardware_value(0x03, min(255, int(temp)))
 
         else:
             logger.debug("Fault type %s has no chip-level action.", cfg.fault_type.value)

@@ -3,9 +3,13 @@
 import pytest
 
 from virtual_silicon.device.virtual_chip import PowerState, VirtualChip
-from virtual_silicon.exceptions import DeviceNotPoweredError
-from virtual_silicon.faults.fault_injector import FaultInjector
+from virtual_silicon.exceptions import DeviceNotPoweredError, InvalidPowerTransitionError
+from virtual_silicon.faults.fault_injector import FaultApplicationResult, FaultInjector
 from virtual_silicon.faults.fault_models import FaultConfig, FaultType
+
+
+def _ids(results: list[FaultApplicationResult]) -> list[str]:
+    return [r.fault_id for r in results if r.applied]
 
 
 @pytest.mark.unit
@@ -58,13 +62,13 @@ class TestPowerStateTransitions:
         chip.fault_shutdown()
         assert chip.power_state == PowerState.FAULT
 
-    def test_power_on_after_fault_recovers(self) -> None:
+    def test_power_on_from_fault_raises(self) -> None:
         chip = VirtualChip(seed=42)
         chip.power_on()
         chip.fault_shutdown()
         assert chip.power_state == PowerState.FAULT
-        chip.power_on()
-        assert chip.power_state == PowerState.READY
+        with pytest.raises(InvalidPowerTransitionError, match="recover_from_fault"):
+            chip.power_on()
 
     def test_power_off_from_fault_goes_to_off(self) -> None:
         chip = VirtualChip(seed=42)
@@ -72,6 +76,68 @@ class TestPowerStateTransitions:
         chip.fault_shutdown()
         chip.power_off()
         assert chip.power_state == PowerState.OFF
+
+
+@pytest.mark.unit
+class TestFaultRecovery:
+    def test_recover_from_fault_transitions_to_off(self) -> None:
+        chip = VirtualChip(seed=42)
+        chip.power_on()
+        chip.fault_shutdown()
+        chip.recover_from_fault()
+        assert chip.power_state == PowerState.OFF
+
+    def test_recover_from_fault_then_power_on_reaches_ready(self) -> None:
+        chip = VirtualChip(seed=42)
+        chip.power_on()
+        chip.fault_shutdown()
+        chip.recover_from_fault()
+        chip.power_on()
+        assert chip.power_state == PowerState.READY
+
+    def test_recover_from_non_fault_raises(self) -> None:
+        chip = VirtualChip(seed=42)
+        with pytest.raises(InvalidPowerTransitionError, match="expected 'fault'"):
+            chip.recover_from_fault()
+
+    def test_recover_from_ready_raises(self) -> None:
+        chip = VirtualChip(seed=42)
+        chip.power_on()
+        with pytest.raises(InvalidPowerTransitionError, match="expected 'fault'"):
+            chip.recover_from_fault()
+
+    def test_full_overcurrent_lifecycle(self) -> None:
+        chip = VirtualChip(seed=42)
+        chip.power_on()
+        cfg = FaultConfig(
+            fault_id="OC",
+            fault_type=FaultType.OVERCURRENT,
+            enabled=True,
+            probability=1.0,
+        )
+        injector = FaultInjector([cfg], seed=42)
+        results = injector.apply_to_chip(chip, cycle=0)
+        assert "OC" in _ids(results)
+        assert chip.power_state == PowerState.FAULT
+        chip.recover_from_fault()
+        assert chip.power_state == PowerState.OFF
+        chip.power_on()
+        assert chip.power_state == PowerState.READY
+
+
+@pytest.mark.unit
+class TestClearFaultCallbacks:
+    def test_clear_fault_callbacks_removes_all(self) -> None:
+        chip = VirtualChip(seed=42)
+        chip.power_on()
+        events: list[str] = []
+        chip.add_fault_callback(lambda e, a, c: events.append(e))
+        chip.read_register(0x00)
+        assert len(events) > 0
+        chip.clear_fault_callbacks()
+        before = len(events)
+        chip.read_register(0x00)
+        assert len(events) == before  # no new events after clear
 
 
 @pytest.mark.unit
@@ -198,8 +264,8 @@ class TestOvercurrentFault:
             probability=1.0,
         )
         injector = FaultInjector([cfg], seed=42)
-        applied = injector.apply_to_chip(chip, cycle=0)
-        assert "OVERCURRENT" in applied
+        results = injector.apply_to_chip(chip, cycle=0)
+        assert "OVERCURRENT" in _ids(results)
         assert chip.power_state == PowerState.FAULT
 
     def test_chip_inaccessible_after_overcurrent(self) -> None:
