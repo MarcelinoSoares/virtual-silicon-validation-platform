@@ -94,6 +94,12 @@ jobs:
           path: reports/coverage/
           if-no-files-found: warn
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
       - name: Upload coverage XML
         if: always()
         uses: actions/upload-artifact@v4

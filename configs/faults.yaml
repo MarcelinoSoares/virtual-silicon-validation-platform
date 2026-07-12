@@ -63,3 +63,17 @@ faults:
     enabled: false
     address: 0x02
     description: "Inject write failure on POWER_CONTROL register"
+
+  - id: OVERCURRENT_FAULT
+    type: overcurrent
+    enabled: false
+    trigger_after_cycles: 200
+    probability: 0.15
+    description: "Simulates an overcurrent event that trips the chip into FAULT power state via fault_shutdown()"
+
+  - id: REGISTER_VALUE_CORRUPTION
+    type: register_value_corruption
+    enabled: false
+    address: 0x09
+    probability: 0.25
+    description: "Injects a random value into ERROR_FLAGS (0x09) to simulate register data integrity failure"

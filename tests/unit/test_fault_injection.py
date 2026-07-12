@@ -484,7 +484,9 @@ class TestFaultInjectorExtras:
         assert "OVERCURRENT" in _ids(results)
         assert virtual_chip.power_state == PowerState.FAULT
 
-    def test_apply_fault_else_branch_no_chip_action(self, virtual_chip: VirtualChip) -> None:
+    def test_apply_to_chip_protocol_fault_returns_skipped_target(
+        self, virtual_chip: VirtualChip
+    ) -> None:
         cfg = FaultConfig(
             fault_id="I2C_NO_ACTION",
             fault_type=FaultType.I2C_TIMEOUT,
@@ -493,7 +495,9 @@ class TestFaultInjectorExtras:
         )
         injector = FaultInjector([cfg], seed=42)
         results = injector.apply_to_chip(virtual_chip, cycle=0)
-        assert "I2C_NO_ACTION" in _ids(results)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_TARGET
+        assert results[0].applied is False
 
     # ── apply_to_i2c branches ────────────────────────────────────────────────
 
@@ -763,3 +767,123 @@ class TestFaultModelsExtras:
         bad_yaml.write_text("faults: [unclosed bracket\n  - broken: {value")
         with pytest.raises(FaultInjectionError, match="Failed to parse fault config"):
             load_fault_configs(bad_yaml)
+
+
+@pytest.mark.unit
+@pytest.mark.fault
+class TestFaultTargetRouting:
+    """Fault types must only appear in results for their target component."""
+
+    def test_i2c_fault_returns_skipped_target_on_chip(self, virtual_chip: VirtualChip) -> None:
+        cfg = FaultConfig(
+            fault_id="I2C_TIMEOUT",
+            fault_type=FaultType.I2C_TIMEOUT,
+            enabled=True,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip(virtual_chip)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_TARGET
+        assert results[0].applied is False
+
+    def test_spi_fault_returns_skipped_target_on_chip(self, virtual_chip: VirtualChip) -> None:
+        cfg = FaultConfig(
+            fault_id="SPI_TIMEOUT",
+            fault_type=FaultType.SPI_TIMEOUT,
+            enabled=True,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip(virtual_chip)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_TARGET
+        assert results[0].applied is False
+
+    def test_chip_fault_absent_from_i2c_results(self, i2c_bus) -> None:
+        configs = [
+            FaultConfig(
+                fault_id="STUCK",
+                fault_type=FaultType.STUCK_BIT,
+                enabled=True,
+                address=0,
+                bit=0,
+                value=1,
+                probability=1.0,
+            ),
+            FaultConfig(
+                fault_id="I2C_TIMEOUT",
+                fault_type=FaultType.I2C_TIMEOUT,
+                enabled=True,
+                probability=1.0,
+            ),
+        ]
+        results = FaultInjector(configs, seed=42).apply_to_i2c(i2c_bus)
+        result_ids = {r.fault_id for r in results}
+        assert "STUCK" not in result_ids
+        assert "I2C_TIMEOUT" in result_ids
+
+    def test_chip_fault_absent_from_spi_results(self, spi_bus) -> None:
+        configs = [
+            FaultConfig(
+                fault_id="OVERHEAT",
+                fault_type=FaultType.OVERHEAT,
+                enabled=True,
+                temperature=90.0,
+                probability=1.0,
+            ),
+            FaultConfig(
+                fault_id="SPI_TIMEOUT",
+                fault_type=FaultType.SPI_TIMEOUT,
+                enabled=True,
+                probability=1.0,
+            ),
+        ]
+        results = FaultInjector(configs, seed=42).apply_to_spi(spi_bus)
+        result_ids = {r.fault_id for r in results}
+        assert "OVERHEAT" not in result_ids
+        assert "SPI_TIMEOUT" in result_ids
+
+    def test_disabled_chip_fault_absent_from_i2c_results(self, i2c_bus) -> None:
+        cfg = FaultConfig(
+            fault_id="DISABLED_STUCK",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=False,
+            address=0,
+            bit=0,
+            value=1,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_i2c(i2c_bus)
+        assert len(results) == 0
+
+    def test_mixed_config_chip_results_contain_only_chip_and_skipped_target(
+        self, virtual_chip: VirtualChip
+    ) -> None:
+        configs = [
+            FaultConfig(
+                fault_id="STUCK",
+                fault_type=FaultType.STUCK_BIT,
+                enabled=True,
+                address=0,
+                bit=0,
+                value=1,
+                probability=1.0,
+            ),
+            FaultConfig(
+                fault_id="I2C_TIMEOUT",
+                fault_type=FaultType.I2C_TIMEOUT,
+                enabled=True,
+                probability=1.0,
+            ),
+            FaultConfig(
+                fault_id="SPI_TIMEOUT",
+                fault_type=FaultType.SPI_TIMEOUT,
+                enabled=True,
+                probability=1.0,
+            ),
+        ]
+        results = FaultInjector(configs, seed=42).apply_to_chip(virtual_chip)
+        assert len(results) == 3
+        by_id = {r.fault_id: r for r in results}
+        assert by_id["STUCK"].status == FaultApplicationStatus.APPLIED
+        assert by_id["I2C_TIMEOUT"].status == FaultApplicationStatus.SKIPPED_TARGET
+        assert by_id["SPI_TIMEOUT"].status == FaultApplicationStatus.SKIPPED_TARGET

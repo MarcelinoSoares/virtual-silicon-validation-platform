@@ -4,6 +4,10 @@ A Python-based IC validation platform that simulates chip hardware — registers
 
 Designed for learning, interview portfolios, and prototyping validation workflows that mirror real silicon bring-up.
 
+[![CI](https://github.com/MarcelinoSoares/virtual-silicon-validation-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MarcelinoSoares/virtual-silicon-validation-platform/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/MarcelinoSoares/virtual-silicon-validation-platform/branch/main/graph/badge.svg)](https://codecov.io/gh/MarcelinoSoares/virtual-silicon-validation-platform)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+
 ---
 
 ## Features
