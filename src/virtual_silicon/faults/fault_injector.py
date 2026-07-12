@@ -43,15 +43,17 @@ class FaultApplicationResult:
         return self.status == FaultApplicationStatus.APPLIED
 
 
-CHIP_FAULT_TYPES: frozenset[FaultType] = frozenset({
-    FaultType.STUCK_BIT,
-    FaultType.MEMORY_CORRUPTION,
-    FaultType.REGISTER_WRITE_FAILURE,
-    FaultType.REGISTER_VALUE_CORRUPTION,
-    FaultType.VOLTAGE_DROP,
-    FaultType.OVERCURRENT,
-    FaultType.OVERHEAT,
-})
+CHIP_FAULT_TYPES: frozenset[FaultType] = frozenset(
+    {
+        FaultType.STUCK_BIT,
+        FaultType.MEMORY_CORRUPTION,
+        FaultType.REGISTER_WRITE_FAILURE,
+        FaultType.REGISTER_VALUE_CORRUPTION,
+        FaultType.VOLTAGE_DROP,
+        FaultType.OVERCURRENT,
+        FaultType.OVERHEAT,
+    }
+)
 I2C_FAULT_TYPES: frozenset[FaultType] = frozenset({FaultType.I2C_TIMEOUT, FaultType.I2C_NACK})
 SPI_FAULT_TYPES: frozenset[FaultType] = frozenset({FaultType.SPI_TIMEOUT, FaultType.SPI_CORRUPTION})
 
