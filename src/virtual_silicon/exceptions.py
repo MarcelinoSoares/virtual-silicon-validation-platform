@@ -47,5 +47,9 @@ class InstrumentMeasurementError(InstrumentError):
     """Raised when an instrument measurement fails."""
 
 
+class InvalidPowerTransitionError(DeviceError):
+    """Raised when an invalid power state transition is attempted."""
+
+
 class FaultInjectionError(VirtualSiliconError):
     """Raised when a fault injection configuration is invalid."""

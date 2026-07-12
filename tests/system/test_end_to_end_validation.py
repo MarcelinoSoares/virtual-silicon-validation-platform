@@ -122,7 +122,7 @@ class TestEndToEndValidation:
         )
         injector = FaultInjector([fault_cfg], seed=seed)
         applied = injector.apply_to_chip(chip, cycle=chip.cycle_count)
-        assert "SRAM_STUCK_BIT" in applied
+        assert "SRAM_STUCK_BIT" in [r.fault_id for r in applied if r.applied]
         temp_db.save_fault_event(
             eid, "SRAM_STUCK_BIT", "stuck_bit", "Stuck bit at address 15, bit 3", chip.cycle_count
         )

@@ -173,6 +173,35 @@ class RegisterMap:
             raise InvalidRegisterAddressError(f"Register '{name}' not found in map.")
         return self._name_index[name]
 
+    def get_register(self, address: int) -> Register:
+        """Get register object by address.
+
+        Args:
+            address: Register address.
+
+        Returns:
+            Register instance.
+
+        Raises:
+            InvalidRegisterAddressError: If address is not mapped.
+        """
+        return self._get_register(address)
+
+    def inject_hardware_value(self, address: int, value: int) -> None:
+        """Force a register value, bypassing access control and behavior semantics.
+
+        Use only for hardware simulation (fault injection, hardware-driven telemetry).
+
+        Args:
+            address: Register address.
+            value: Value to force into the register.
+
+        Raises:
+            InvalidRegisterAddressError: If address is not mapped.
+        """
+        reg = self._get_register(address)
+        reg.force_value(value)
+
     def _get_register(self, address: int) -> Register:
         """Internal helper to get register by address."""
         if address not in self._registers:

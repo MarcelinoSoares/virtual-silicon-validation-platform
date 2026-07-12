@@ -104,6 +104,11 @@ class Register:
         """Current register value."""
         return self._value
 
+    @property
+    def max_value_mask(self) -> int:
+        """Maximum value this register can hold (all bits set for its size)."""
+        return self._max_bits
+
     def read(self) -> int:
         """Read the register value.
 
@@ -178,6 +183,17 @@ class Register:
         self._value = self.reset_value & self.bit_mask
         logger.debug("Reset register '%s' [0x%04X] to 0x%X", self.name, self.address, self._value)
 
+    def force_value(self, value: int) -> None:
+        """Force register to a value, bypassing access control and behavior semantics.
+
+        Use only for hardware simulation (fault injection, hardware-driven telemetry).
+        Does not increment write_count.
+        """
+        self._value = value & self.bit_mask
+        logger.debug(
+            "Hardware-forced register '%s' [0x%04X] = 0x%X", self.name, self.address, self._value
+        )
+
     def get_field(self, bit_start: int, bit_length: int) -> int:
         """Extract a bit field from the register.
 
@@ -198,7 +214,16 @@ class Register:
             bit_start: Starting bit position (0 = LSB).
             bit_length: Number of bits to update.
             field_value: New field value.
+
+        Raises:
+            RegisterAccessError: If register has non-NORMAL behavior (W1C, R2C).
         """
+        if self.behavior != RegisterBehavior.NORMAL:
+            raise RegisterAccessError(
+                f"set_field() is not supported for {self.behavior} registers "
+                f"('{self.name}' at 0x{self.address:04X}); "
+                "use write() with correct bit semantics or force_value() for hardware injection."
+            )
         mask = (1 << bit_length) - 1
         cleared = self._value & ~(mask << bit_start)
         new_value = cleared | ((field_value & mask) << bit_start)

@@ -10,11 +10,11 @@ from typing import Literal
 
 from virtual_silicon.device.memory import SRAM, MemoryTestResult
 from virtual_silicon.device.register_map import RegisterMap
-from virtual_silicon.exceptions import DeviceNotPoweredError
+from virtual_silicon.exceptions import DeviceNotPoweredError, InvalidPowerTransitionError
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["DeviceNotPoweredError", "PowerState", "VirtualChip"]
+__all__ = ["DeviceNotPoweredError", "InvalidPowerTransitionError", "PowerState", "VirtualChip"]
 
 
 class PowerState(StrEnum):
@@ -102,7 +102,15 @@ class VirtualChip:
         return self._sram
 
     def power_on(self) -> None:
-        """Power on the chip and initialize registers and SRAM to power-on state."""
+        """Power on the chip and initialize registers and SRAM to power-on state.
+
+        Raises:
+            InvalidPowerTransitionError: If chip is in FAULT state (call recover_from_fault() first).
+        """
+        if self._power_state == PowerState.FAULT:
+            raise InvalidPowerTransitionError(
+                "Cannot power on from FAULT state. Call recover_from_fault() first."
+            )
         if self._power_state == PowerState.READY:
             logger.warning("Chip is already powered on.")
             return
@@ -127,6 +135,19 @@ class VirtualChip:
         """Transition to FAULT state (e.g., triggered by overcurrent protection)."""
         self._power_state = PowerState.FAULT
         logger.warning("Chip fault shutdown after %d cycles.", self._cycle_count)
+
+    def recover_from_fault(self) -> None:
+        """Transition from FAULT to OFF, allowing a subsequent power_on().
+
+        Raises:
+            InvalidPowerTransitionError: If chip is not in FAULT state.
+        """
+        if self._power_state != PowerState.FAULT:
+            raise InvalidPowerTransitionError(
+                f"recover_from_fault() called from {self._power_state.value!r}, expected 'fault'."
+            )
+        self._power_state = PowerState.OFF
+        logger.info("Chip recovered from FAULT state. Ready for power_on().")
 
     def warm_reset(self) -> None:
         """Warm reset: restore register defaults and clear SRAM while staying powered.
@@ -275,6 +296,11 @@ class VirtualChip:
     def add_fault_callback(self, callback: Callable[[str, int, int], None]) -> None:
         """Register a fault injection callback invoked on chip operations."""
         self._fault_callbacks.append(callback)
+
+    def clear_fault_callbacks(self) -> None:
+        """Remove all registered fault callbacks."""
+        self._fault_callbacks.clear()
+        logger.debug("All fault callbacks cleared.")
 
     def _on_sram_access(self) -> None:
         self._cycle_count += 1
