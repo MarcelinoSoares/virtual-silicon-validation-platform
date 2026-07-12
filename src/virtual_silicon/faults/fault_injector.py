@@ -96,9 +96,7 @@ class FaultInjector:
             except Exception as exc:
                 error_msg = str(exc)
                 results.append(
-                    FaultApplicationResult(
-                        fault_id=cfg.fault_id, applied=False, error=error_msg
-                    )
+                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=error_msg)
                 )
                 if strict:
                     raise FaultInjectionError(
@@ -143,9 +141,7 @@ class FaultInjector:
                 logger.info("I2C fault applied: %s.", cfg.fault_id)
             except Exception as exc:
                 results.append(
-                    FaultApplicationResult(
-                        fault_id=cfg.fault_id, applied=False, error=str(exc)
-                    )
+                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=str(exc))
                 )
                 logger.warning("Failed to apply I2C fault %s: %s", cfg.fault_id, exc)
         return results
@@ -186,9 +182,7 @@ class FaultInjector:
                 logger.info("SPI fault applied: %s.", cfg.fault_id)
             except Exception as exc:
                 results.append(
-                    FaultApplicationResult(
-                        fault_id=cfg.fault_id, applied=False, error=str(exc)
-                    )
+                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=str(exc))
                 )
                 logger.warning("Failed to apply SPI fault %s: %s", cfg.fault_id, exc)
         return results
