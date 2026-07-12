@@ -191,12 +191,13 @@ def inject_fault(
         raise typer.Exit(1) from exc
 
     injector = FaultInjector(fault_configs, seed=settings.random_seed)
-    applied = injector.apply_to_chip(chip, cycle=chip.cycle_count)
+    results = injector.apply_to_chip(chip, cycle=chip.cycle_count)
+    applied = [r for r in results if r.applied]
 
     if applied:
         console.print(f"[yellow]Injected {len(applied)} fault(s):[/yellow]")
-        for fid in applied:
-            console.print(f"  • {fid}")
+        for r in applied:
+            console.print(f"  • {r.fault_id}")
     else:
         console.print("[blue]No faults triggered at current cycle.[/blue]")
 

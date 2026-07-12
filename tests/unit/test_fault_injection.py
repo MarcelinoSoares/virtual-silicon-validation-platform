@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 
 from virtual_silicon.device.virtual_chip import VirtualChip
-from virtual_silicon.faults.fault_injector import FaultApplicationResult, FaultInjector
+from virtual_silicon.faults.fault_injector import (
+    FaultApplicationResult,
+    FaultApplicationStatus,
+    FaultInjector,
+)
 from virtual_silicon.faults.fault_models import (
     FaultConfig,
     FaultInjectionError,
@@ -322,6 +326,24 @@ class TestFaultLifecycle:
         txn_after = spi_bus.read_register(0x00)
         assert txn_after.success
 
+    def test_reset_chip_faults_removes_sram_stuck_bits(self, virtual_chip) -> None:
+        cfg = FaultConfig(
+            fault_id="STUCK_BIT",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=True,
+            address=0,
+            bit=0,
+            value=1,
+            probability=1.0,
+        )
+        injector = FaultInjector([cfg], seed=42)
+        injector.apply_to_chip(virtual_chip, cycle=0)
+        virtual_chip.sram.write(0, 0x00)
+        assert virtual_chip.sram.read(0) == 0x01  # stuck bit active
+        injector.reset_chip_faults(virtual_chip)
+        virtual_chip.sram.write(0, 0x00)
+        assert virtual_chip.sram.read(0) == 0x00  # stuck bit removed
+
     def test_clear_fault_registry_only_clears_admin_state(self, virtual_chip) -> None:
         cfg = FaultConfig(
             fault_id="OVERHEAT",
@@ -607,6 +629,128 @@ class TestFaultInjectorExtras:
         injector = FaultInjector([cfg], seed=42)
         results = injector.apply_to_spi("not_a_spi_bus", cycle=0)
         assert "SPI_BAD_BUS" not in _ids(results)
+
+
+@pytest.mark.unit
+@pytest.mark.fault
+class TestFaultApplicationStatus:
+    """Status field and skipped-fault observability."""
+
+    def test_applied_status_on_success(self, virtual_chip) -> None:
+        cfg = FaultConfig(
+            fault_id="OK",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=True,
+            address=0,
+            bit=0,
+            value=1,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip(virtual_chip)
+        assert results[0].status == FaultApplicationStatus.APPLIED
+
+    def test_failed_status_on_exception(self) -> None:
+        cfg = FaultConfig(
+            fault_id="FAIL",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=True,
+            address=0,
+            bit=0,
+            value=1,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip("not_a_chip")
+        assert results[0].status == FaultApplicationStatus.FAILED
+
+    def test_skipped_disabled_status(self, virtual_chip) -> None:
+        cfg = FaultConfig(
+            fault_id="DISABLED",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=False,
+            address=0,
+            bit=0,
+            value=1,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip(virtual_chip)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_DISABLED
+        assert results[0].applied is False
+
+    def test_skipped_cycle_status(self, virtual_chip) -> None:
+        cfg = FaultConfig(
+            fault_id="DELAYED",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=True,
+            address=0,
+            bit=0,
+            value=1,
+            trigger_after_cycles=100,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip(virtual_chip, cycle=50)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_CYCLE
+        assert results[0].applied is False
+
+    def test_skipped_probability_status(self, virtual_chip) -> None:
+        cfg = FaultConfig(
+            fault_id="PROB_ZERO",
+            fault_type=FaultType.STUCK_BIT,
+            enabled=True,
+            address=0,
+            bit=0,
+            value=1,
+            probability=0.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_chip(virtual_chip)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_PROBABILITY
+        assert results[0].applied is False
+
+    def test_i2c_strict_raises_on_failure(self, i2c_bus) -> None:
+        cfg = FaultConfig(
+            fault_id="I2C_STRICT",
+            fault_type=FaultType.I2C_TIMEOUT,
+            enabled=True,
+            probability=1.0,
+        )
+        injector = FaultInjector([cfg], seed=42)
+        with pytest.raises(FaultInjectionError, match="I2C_STRICT"):
+            injector.apply_to_i2c("not_an_i2c_bus", strict=True)
+
+    def test_spi_strict_raises_on_failure(self, spi_bus) -> None:
+        cfg = FaultConfig(
+            fault_id="SPI_STRICT",
+            fault_type=FaultType.SPI_TIMEOUT,
+            enabled=True,
+            probability=1.0,
+        )
+        injector = FaultInjector([cfg], seed=42)
+        with pytest.raises(FaultInjectionError, match="SPI_STRICT"):
+            injector.apply_to_spi("not_a_spi_bus", strict=True)
+
+    def test_i2c_disabled_emits_skipped_result(self, i2c_bus) -> None:
+        cfg = FaultConfig(
+            fault_id="DISABLED_I2C",
+            fault_type=FaultType.I2C_TIMEOUT,
+            enabled=False,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_i2c(i2c_bus)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_DISABLED
+
+    def test_spi_disabled_emits_skipped_result(self, spi_bus) -> None:
+        cfg = FaultConfig(
+            fault_id="DISABLED_SPI",
+            fault_type=FaultType.SPI_TIMEOUT,
+            enabled=False,
+            probability=1.0,
+        )
+        results = FaultInjector([cfg], seed=42).apply_to_spi(spi_bus)
+        assert len(results) == 1
+        assert results[0].status == FaultApplicationStatus.SKIPPED_DISABLED
 
 
 @pytest.mark.unit

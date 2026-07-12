@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Protocol
 
 from virtual_silicon.faults.fault_models import (
@@ -17,12 +18,23 @@ from virtual_silicon.faults.fault_models import (
 logger = logging.getLogger(__name__)
 
 
+class FaultApplicationStatus(StrEnum):
+    """Outcome category for a single fault application attempt."""
+
+    APPLIED = "applied"
+    SKIPPED_DISABLED = "skipped_disabled"
+    SKIPPED_CYCLE = "skipped_cycle"
+    SKIPPED_PROBABILITY = "skipped_probability"
+    FAILED = "failed"
+
+
 @dataclass
 class FaultApplicationResult:
     """Outcome of a single fault application attempt."""
 
     fault_id: str
     applied: bool
+    status: FaultApplicationStatus = field(default=FaultApplicationStatus.APPLIED)
     error: str | None = None
 
 
@@ -80,10 +92,31 @@ class FaultInjector:
         for model in self._models:
             cfg = model.config
             if not cfg.enabled:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_DISABLED,
+                    )
+                )
                 continue
             if cfg.trigger_after_cycles is not None and cycle < cfg.trigger_after_cycles:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_CYCLE,
+                    )
+                )
                 continue
             if self._rng.random() > cfg.probability:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_PROBABILITY,
+                    )
+                )
                 continue
             try:
                 self._apply_fault(cfg, chip)
@@ -91,12 +124,23 @@ class FaultInjector:
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
                 self._active_faults[cfg.fault_id] = cfg
-                results.append(FaultApplicationResult(fault_id=cfg.fault_id, applied=True))
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=True,
+                        status=FaultApplicationStatus.APPLIED,
+                    )
+                )
                 logger.info("Fault applied: %s (%s).", cfg.fault_id, cfg.fault_type.value)
             except Exception as exc:
                 error_msg = str(exc)
                 results.append(
-                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=error_msg)
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.FAILED,
+                        error=error_msg,
+                    )
                 )
                 if strict:
                     raise FaultInjectionError(
@@ -106,27 +150,52 @@ class FaultInjector:
         return results
 
     def apply_to_i2c(
-        self, i2c: _BusWithFaultProbabilities, cycle: int = 0
+        self, i2c: _BusWithFaultProbabilities, cycle: int = 0, strict: bool = False
     ) -> list[FaultApplicationResult]:
         """Apply I2C-specific faults (timeout, NACK).
 
         Args:
             i2c: I2CBus instance.
             cycle: Current execution cycle.
+            strict: If True, re-raise fault application errors instead of logging warnings.
 
         Returns:
             List of FaultApplicationResult for each attempted fault.
+
+        Raises:
+            FaultInjectionError: If strict=True and a fault fails to apply.
         """
         results: list[FaultApplicationResult] = []
         for model in self._models:
             cfg = model.config
             if not cfg.enabled:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_DISABLED,
+                    )
+                )
                 continue
             if cfg.fault_type not in (FaultType.I2C_TIMEOUT, FaultType.I2C_NACK):
                 continue
             if cfg.trigger_after_cycles is not None and cycle < cfg.trigger_after_cycles:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_CYCLE,
+                    )
+                )
                 continue
             if self._rng.random() > cfg.probability:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_PROBABILITY,
+                    )
+                )
                 continue
             try:
                 if cfg.fault_type == FaultType.I2C_TIMEOUT:
@@ -137,37 +206,78 @@ class FaultInjector:
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
                 self._active_faults[cfg.fault_id] = cfg
-                results.append(FaultApplicationResult(fault_id=cfg.fault_id, applied=True))
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=True,
+                        status=FaultApplicationStatus.APPLIED,
+                    )
+                )
                 logger.info("I2C fault applied: %s.", cfg.fault_id)
             except Exception as exc:
+                error_msg = str(exc)
                 results.append(
-                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=str(exc))
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.FAILED,
+                        error=error_msg,
+                    )
                 )
+                if strict:
+                    raise FaultInjectionError(
+                        f"Failed to apply I2C fault '{cfg.fault_id}': {error_msg}"
+                    ) from exc
                 logger.warning("Failed to apply I2C fault %s: %s", cfg.fault_id, exc)
         return results
 
     def apply_to_spi(
-        self, spi: _BusWithFaultProbabilities, cycle: int = 0
+        self, spi: _BusWithFaultProbabilities, cycle: int = 0, strict: bool = False
     ) -> list[FaultApplicationResult]:
         """Apply SPI-specific faults (timeout, corruption).
 
         Args:
             spi: SPIBus instance.
             cycle: Current execution cycle.
+            strict: If True, re-raise fault application errors instead of logging warnings.
 
         Returns:
             List of FaultApplicationResult for each attempted fault.
+
+        Raises:
+            FaultInjectionError: If strict=True and a fault fails to apply.
         """
         results: list[FaultApplicationResult] = []
         for model in self._models:
             cfg = model.config
             if not cfg.enabled:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_DISABLED,
+                    )
+                )
                 continue
             if cfg.fault_type not in (FaultType.SPI_TIMEOUT, FaultType.SPI_CORRUPTION):
                 continue
             if cfg.trigger_after_cycles is not None and cycle < cfg.trigger_after_cycles:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_CYCLE,
+                    )
+                )
                 continue
             if self._rng.random() > cfg.probability:
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.SKIPPED_PROBABILITY,
+                    )
+                )
                 continue
             try:
                 if cfg.fault_type == FaultType.SPI_TIMEOUT:
@@ -178,12 +288,28 @@ class FaultInjector:
                 model.trigger_count += 1
                 model.last_triggered_cycle = cycle
                 self._active_faults[cfg.fault_id] = cfg
-                results.append(FaultApplicationResult(fault_id=cfg.fault_id, applied=True))
+                results.append(
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=True,
+                        status=FaultApplicationStatus.APPLIED,
+                    )
+                )
                 logger.info("SPI fault applied: %s.", cfg.fault_id)
             except Exception as exc:
+                error_msg = str(exc)
                 results.append(
-                    FaultApplicationResult(fault_id=cfg.fault_id, applied=False, error=str(exc))
+                    FaultApplicationResult(
+                        fault_id=cfg.fault_id,
+                        applied=False,
+                        status=FaultApplicationStatus.FAILED,
+                        error=error_msg,
+                    )
                 )
+                if strict:
+                    raise FaultInjectionError(
+                        f"Failed to apply SPI fault '{cfg.fault_id}': {error_msg}"
+                    ) from exc
                 logger.warning("Failed to apply SPI fault %s: %s", cfg.fault_id, exc)
         return results
 
@@ -200,7 +326,11 @@ class FaultInjector:
         logger.info("Fault registry cleared.")
 
     def reset_chip_faults(self, chip: object) -> None:
-        """Remove fault callbacks and restore all registers to reset values.
+        """Remove fault callbacks, clear SRAM stuck bits, and restore all registers to reset values.
+
+        Memory corruption (bytes written directly to SRAM) is not reversed — those writes persist,
+        mirroring physical behaviour. To clear the FAULT power state, call recover_from_fault()
+        separately.
 
         Args:
             chip: VirtualChip instance.
@@ -210,8 +340,11 @@ class FaultInjector:
         if not isinstance(chip, VirtualChip):
             raise FaultInjectionError(f"Expected VirtualChip, got {type(chip).__name__}.")
         chip.clear_fault_callbacks()
+        chip.sram.clear_faults()
         chip.register_map.reset_all()
-        logger.info("Chip fault effects cleared: callbacks removed, registers reset.")
+        logger.info(
+            "Chip fault effects cleared: callbacks removed, stuck bits cleared, registers reset."
+        )
 
     def reset_i2c_faults(self, i2c: _BusWithFaultProbabilities) -> None:
         """Reset I2C bus fault probabilities to zero.

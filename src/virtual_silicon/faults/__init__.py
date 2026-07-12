@@ -1,6 +1,10 @@
 """Fault injection framework for simulating hardware and protocol failures."""
 
-from virtual_silicon.faults.fault_injector import FaultApplicationResult, FaultInjector
+from virtual_silicon.faults.fault_injector import (
+    FaultApplicationResult,
+    FaultApplicationStatus,
+    FaultInjector,
+)
 from virtual_silicon.faults.fault_models import (
     FaultConfig,
     FaultInjectionError,
@@ -11,6 +15,7 @@ from virtual_silicon.faults.fault_models import (
 
 __all__ = [
     "FaultApplicationResult",
+    "FaultApplicationStatus",
     "FaultConfig",
     "FaultInjectionError",
     "FaultModel",
